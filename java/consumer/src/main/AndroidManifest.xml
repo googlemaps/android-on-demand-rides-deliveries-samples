@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright 2020 Google LLC
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+         https://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.google.mapsplatform.transportation.sample"
+    android:versionCode="1"
+    android:versionName="1.0">
+
+  <application
+      android:icon="@drawable/ic_launcher"
+      android:roundIcon="@mipmap/ic_launcher_round"
+      android:label="@string/app_label"
+      android:theme="@style/Theme.Sample"
+      android:usesCleartextTraffic="true">
+
+    <activity
+        android:name=".SplashScreenActivity"
+        android:exported="true"
+        android:theme="@style/SplashscreenTheme">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+    </activity>
+
+    <activity
+        android:name=".SampleAppActivity"
+        android:exported="true"
+        android:windowSoftInputMode="adjustNothing">
+    </activity> <!-- gmscore version -->
+
+    <!-- Please fill these fields with values from your Cloud project. -->
+    <meta-data
+        android:name="com.google.android.geo.API_KEY"
+        android:value="YOUR_API_KEY" />
+    <meta-data
+        android:name="com.google.mapsplatform.transportation.sample.provider_id"
+        android:value="YOUR_PROVIDER_ID" />
+    <meta-data
+        android:name="com.google.mapsplatform.transportation.sample.provider_url"
+        android:value="http://10.0.2.2:8080" />
+    <!-- End of values. -->
+
+    <meta-data
+        android:name="com.google.android.gms.version"
+        android:value="@integer/google_play_services_version"
+        tools:replace="android:value" />
+    <meta-data
+        android:name="preloaded_fonts"
+        android:resource="@array/preloaded_fonts" />
+  </application>
+
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+</manifest>

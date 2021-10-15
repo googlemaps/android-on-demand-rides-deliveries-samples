@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright 2020 Google LLC
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+         https://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+  <FrameLayout
+      android:id="@+id/viewstub_overlay_container"
+      android:layout_width="0dp"
+      android:layout_height="0dp"
+      app:layout_constraintBottom_toTopOf="@id/trip_status_cardView"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent">
+    <include
+      layout="@layout/consumer_map_view"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent" />
+    <include
+      layout="@layout/pickup_selection_pin"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:visibility="gone" />
+    <include
+      layout="@layout/dropoff_selection_pin"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:visibility="gone" />
+  </FrameLayout>
+  <androidx.constraintlayout.widget.Guideline
+      android:id="@+id/guideline"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:orientation="horizontal"
+      app:layout_constraintGuide_percent="0.8" />
+  <androidx.cardview.widget.CardView
+      android:id="@+id/trip_status_cardView"
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      app:cardElevation="8dp"
+      app:layout_constraintBottom_toTopOf="@+id/divider"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="@+id/guideline">
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+      <TextView
+          android:id="@+id/tripStatus"
+          style="@style/TextAppearance.AppCompat.Title"
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_margin="@dimen/text_margin_start_end"
+          android:fontFamily="@font/roboto_bold"
+          android:text="@string/state_initial"
+          android:textColor="@color/primaryColor"
+          android:textSize="@dimen/content_font"
+          android:visibility="invisible"
+          app:layout_constraintEnd_toEndOf="parent"
+          app:layout_constraintStart_toStartOf="parent"
+          app:layout_constraintTop_toTopOf="parent" />
+      <TextView
+          android:id="@+id/eta"
+          android:layout_width="wrap_content"
+          android:layout_height="@dimen/status_text_height"
+          android:fontFamily="@font/roboto_medium"
+          android:text="@string/eta_within_one_minute"
+          android:textColor="@color/cardInfoText"
+          android:textSize="@dimen/content_font"
+          android:visibility="invisible"
+          app:layout_constraintStart_toStartOf="@+id/guideline2"
+          app:layout_constraintTop_toBottomOf="@+id/tripStatus" />
+      <TextView
+          android:id="@+id/remainingDistance"
+          android:layout_width="wrap_content"
+          android:layout_height="@dimen/status_text_height"
+          android:layout_marginStart="6dp"
+          android:fontFamily="@font/roboto_medium"
+          android:text="@string/distance_format_string_km"
+          android:textColor="@color/cardInfoText"
+          android:textSize="@dimen/content_font"
+          android:visibility="invisible"
+          app:layout_constraintStart_toEndOf="@+id/eta"
+          app:layout_constraintTop_toBottomOf="@+id/tripStatus" />
+      <androidx.constraintlayout.widget.Guideline
+          android:id="@+id/guideline2"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:orientation="vertical"
+          app:layout_constraintGuide_begin="@dimen/status_card_gutter" />
+      <TextView
+          android:id="@+id/vehicleId"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="8dp"
+          android:fontFamily="@font/roboto"
+          android:text="@string/vehicle_id_label"
+          android:textColor="@color/cardInfoText"
+          android:visibility="invisible"
+          app:layout_constraintStart_toStartOf="@+id/guideline2"
+          app:layout_constraintTop_toBottomOf="@+id/eta" />
+      <TextView
+          android:id="@+id/tripId"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:fontFamily="@font/roboto"
+          android:text="@string/trip_id_label"
+          android:textColor="@color/cardInfoText"
+          android:visibility="invisible"
+          app:layout_constraintStart_toStartOf="@+id/guideline2"
+          app:layout_constraintTop_toBottomOf="@+id/vehicleId" />
+      <Button
+          android:id="@+id/actionButton"
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_marginBottom="16dp"
+          android:layout_marginStart="8dp"
+          android:layout_marginEnd="8dp"
+          android:background="@drawable/rounded_button"
+          android:text="@string/request_button_label"
+          android:textColor="@android:color/white"
+          app:layout_constraintBottom_toBottomOf="parent"
+          app:layout_constraintEnd_toEndOf="parent"
+          app:layout_constraintStart_toStartOf="parent" />
+      <TextView
+          android:id="@+id/customRouteCost"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:fontFamily="@font/roboto"
+          android:text="@string/custom_route_cost_label"
+          android:textColor="@color/primaryColor"
+          android:textSize="@dimen/content_font"
+          android:visibility="invisible"
+          app:layout_constraintStart_toStartOf="@id/guideline2"
+          app:layout_constraintTop_toBottomOf="@id/tripStatus" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+  </androidx.cardview.widget.CardView>
+  <View
+      android:id="@+id/divider"
+      android:layout_width="match_parent"
+      android:layout_height="1dp"
+      android:background="@color/dividerColor"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintStart_toStartOf="parent" />
+</androidx.constraintlayout.widget.ConstraintLayout>

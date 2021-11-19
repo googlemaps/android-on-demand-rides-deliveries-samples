@@ -27,12 +27,21 @@
 // limitations under the License.
 package com.google.mapsplatform.transportation.sample;
 
+import static com.google.mapsplatform.transportation.sample.state.AppStates.INITIALIZED;
+import static com.google.mapsplatform.transportation.sample.state.AppStates.JOURNEY_SHARING;
+import static com.google.mapsplatform.transportation.sample.state.AppStates.SELECTING_PICKUP;
+import static com.google.mapsplatform.transportation.sample.state.AppStates.UNINITIALIZED;
+
 import android.app.Application;
 import android.util.Log;
-
+import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
+import androidx.lifecycle.AndroidViewModel;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MutableLiveData;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.libraries.mapsplatform.transportation.consumer.managers.ConsumerTrip;
-import com.google.android.libraries.mapsplatform.transportation.consumer.managers.ConsumerTripCallback;
+import com.google.android.libraries.mapsplatform.transportation.consumer.managers.TripModel;
+import com.google.android.libraries.mapsplatform.transportation.consumer.managers.TripModelCallback;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.Trip;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripInfo;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripName;
@@ -49,7 +58,6 @@ import com.google.mapsplatform.transportation.sample.provider.response.TripRespo
 import com.google.mapsplatform.transportation.sample.provider.response.WaypointResponse;
 import com.google.mapsplatform.transportation.sample.provider.service.LocalProviderService;
 import com.google.mapsplatform.transportation.sample.state.AppStates;
-
 import java.lang.ref.WeakReference;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -58,17 +66,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-
-import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat;
-import androidx.lifecycle.AndroidViewModel;
-import androidx.lifecycle.LiveData;
-import androidx.lifecycle.MutableLiveData;
-
-import static com.google.mapsplatform.transportation.sample.state.AppStates.INITIALIZED;
-import static com.google.mapsplatform.transportation.sample.state.AppStates.JOURNEY_SHARING;
-import static com.google.mapsplatform.transportation.sample.state.AppStates.SELECTING_PICKUP;
-import static com.google.mapsplatform.transportation.sample.state.AppStates.UNINITIALIZED;
 
 /**
  * ViewModel for the Consumer Sample application. It provides observables for the current
@@ -83,8 +80,8 @@ public class ConsumerViewModel extends AndroidViewModel {
 
   interface JourneySharingListener {
 
-    /** Starts journey sharing rendering and return that {@link ConsumerTrip}. */
-    ConsumerTrip startJourneySharing(TripData tripData);
+    /** Starts journey sharing rendering and return that {@link TripModel}. */
+    TripModel startJourneySharing(TripData tripData);
 
     /** Stops journey sharing rendering. */
     void stopJourneySharing();
@@ -123,7 +120,7 @@ public class ConsumerViewModel extends AndroidViewModel {
   private final MutableLiveData<TripInfo> tripInfo = new MutableLiveData<>();
 
   // The current active trip, meant for create journey sharing session and observe session.
-  private final MutableLiveData<ConsumerTrip> trip = new MutableLiveData<>();
+  private final MutableLiveData<TripModel> trip = new MutableLiveData<>();
 
   private final LocalProviderService providerService;
   private final ExecutorService executor = Executors.newCachedThreadPool();
@@ -214,7 +211,7 @@ public class ConsumerViewModel extends AndroidViewModel {
     if (waypoints.size() != 2 || listener == null) {
       return;
     }
-    ConsumerTrip consumerTrip = listener.startJourneySharing(tripData);
+    TripModel consumerTrip = listener.startJourneySharing(tripData);
     trip.setValue(consumerTrip);
     appState.setValue(JOURNEY_SHARING);
     consumerTrip.registerTripCallback(tripCallback);
@@ -248,7 +245,7 @@ public class ConsumerViewModel extends AndroidViewModel {
 
   /** Unregisters callback as part of cleanup. */
   public void unregisterTripCallback() {
-    ConsumerTrip consumerTrip = trip.getValue();
+    TripModel consumerTrip = trip.getValue();
     if (consumerTrip != null) {
       consumerTrip.unregisterTripCallback(tripCallback);
     }
@@ -335,7 +332,7 @@ public class ConsumerViewModel extends AndroidViewModel {
     pickupLocation.setValue(location);
   }
 
-  public void setTrip(ConsumerTrip consumerTrip) {
+  public void setTrip(TripModel consumerTrip) {
     trip.setValue(consumerTrip);
   }
 
@@ -347,8 +344,8 @@ public class ConsumerViewModel extends AndroidViewModel {
   }
 
   /** Trip callbacks registered during */
-  private final ConsumerTripCallback tripCallback =
-      new ConsumerTripCallback() {
+  private final TripModelCallback tripCallback =
+      new TripModelCallback() {
         @Override
         public void onTripActiveRouteRemainingDistanceUpdated(
             TripInfo tripInfo, @Nullable Integer distanceMeters) {
@@ -356,7 +353,7 @@ public class ConsumerViewModel extends AndroidViewModel {
         }
 
         @Override
-        public void onTripRefreshed(TripInfo tripInfo) {
+        public void onTripUpdated(TripInfo tripInfo) {
           ConsumerViewModel.this.tripInfo.setValue(tripInfo);
           tripId.setValue(TripName.create(tripInfo.getTripName()).getTripId());
         }

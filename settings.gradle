@@ -13,4 +13,5 @@
  * limitations under the License.
  */
 include 'java:consumer'
+include 'java:driver'
 rootProject.name = "On-demand rides and deliveries samples"

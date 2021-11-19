@@ -61,8 +61,8 @@ import com.google.android.gms.tasks.Task;
 import com.google.android.libraries.mapsplatform.transportation.consumer.ConsumerApi;
 import com.google.android.libraries.mapsplatform.transportation.consumer.auth.AuthTokenContext;
 import com.google.android.libraries.mapsplatform.transportation.consumer.auth.AuthTokenFactory;
-import com.google.android.libraries.mapsplatform.transportation.consumer.managers.ConsumerTrip;
-import com.google.android.libraries.mapsplatform.transportation.consumer.managers.ConsumerTripManager;
+import com.google.android.libraries.mapsplatform.transportation.consumer.managers.TripModel;
+import com.google.android.libraries.mapsplatform.transportation.consumer.managers.TripModelManager;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TerminalLocation;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.Trip.TripStatus;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripInfo;
@@ -120,7 +120,7 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
   // ViewModel for the consumer sample app.
   private ConsumerViewModel consumerViewModel;
 
-  @MonotonicNonNull private ConsumerTripManager consumerTripManager;
+  @MonotonicNonNull private TripModelManager consumerTripManager;
   @MonotonicNonNull private ConsumerController consumerController;
 
   // Session monitoring the current active trip.
@@ -169,7 +169,8 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
                     ProviderUtils.getProviderId(SampleAppActivity.this),
                     new TripAuthTokenFactory());
             consumerApiTask.addOnSuccessListener(
-                consumerApi -> consumerTripManager = requireNonNull(consumerApi.getTripManager()));
+                consumerApi ->
+                    consumerTripManager = requireNonNull(consumerApi.getTripModelManager()));
             consumerApiTask.addOnFailureListener(
                 task -> Log.e(TAG, "ConsumerApi Initialization Error:\n" + task.getMessage()));
             ConsumerMarkerUtils.setCustomMarkers(
@@ -185,9 +186,9 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
   }
 
   @Override
-  public ConsumerTrip startJourneySharing(TripData tripData) {
+  public TripModel startJourneySharing(TripData tripData) {
     consumerToken = tripData.token();
-    ConsumerTrip trip = requireNonNull(consumerTripManager).getTrip(tripData.tripName());
+    TripModel trip = requireNonNull(consumerTripManager).getTripModel(tripData.tripName());
     journeySharingSession = JourneySharingSession.createInstance(trip);
     requireNonNull(consumerController).showSession(journeySharingSession);
     return trip;
@@ -561,11 +562,11 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
   }
 
   /** A factory for returning auth tokens for the currently assigned trip */
-  private class TripAuthTokenFactory extends AuthTokenFactory {
+  private class TripAuthTokenFactory implements AuthTokenFactory {
 
     /** Returns the current trip token or null if there isn't a current trip. */
     @Override
-    public String getToken(int serviceType, AuthTokenContext context) {
+    public String getToken(AuthTokenContext context) {
       return requireNonNull(consumerToken);
     }
   }

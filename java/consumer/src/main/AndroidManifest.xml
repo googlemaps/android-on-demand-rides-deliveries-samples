@@ -46,13 +46,13 @@
     <!-- Please fill these fields with values from your Cloud project. -->
     <meta-data
         android:name="com.google.android.geo.API_KEY"
-        android:value="YOUR_API_KEY" />
+        android:value="${MAPS_API_KEY}" />
     <meta-data
         android:name="com.google.mapsplatform.transportation.sample.provider_id"
-        android:value="YOUR_PROVIDER_ID" />
+        android:value="${PROVIDER_ID}" />
     <meta-data
         android:name="com.google.mapsplatform.transportation.sample.provider_url"
-        android:value="http://10.0.2.2:8080" />
+        android:value="${PROVIDER_URL}" />
     <!-- End of values. -->
 
     <meta-data

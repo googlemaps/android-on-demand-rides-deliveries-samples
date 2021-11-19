@@ -49,30 +49,11 @@ works on your DEV machine correctly.
 
 ### Step 2 - Add API key and other metadata (required)
 #### Driver sample
-In `java/driver/src/main/AndroidManifest.xml`
-
-Add your API key to `android:value` field
-
-```xml
-<meta-data
-    android:name="com.google.android.geo.API_KEY"
-    android:value="YOUR_API_KEY"/>
+In the root `local.properties` file append the following lines
 ```
-
-Add your provider ID to `android:value` field
-
-```xml
-<meta-data
-    android:name="com.example.driver.sampleapp.provider_id"
-    android:value="YOUR_PROVIDER_ID"/>
-```
-
-Add your provider backend URL(with port number) to `android:value` field
-
-```xml
-<meta-data
-    android:name="com.example.driver.sampleapp.provider_url"
-    android:value="http://10.0.2.2:8080" />
+MAPS_API_KEY=YOUR_API_KEY
+PROVIDER_ID=YOUR_API_KEY
+PROVIDER_URL=YOUR_PROVIDER_BASE_URL
 ```
 
 **NOTE**: The logic of reading provider ID and URL is in `ProviderUtils.java`.

@@ -27,6 +27,7 @@
 // limitations under the License.
 package com.google.mapsplatform.transportation.sample.provider.response;
 
+import com.google.gson.annotations.SerializedName;
 import org.joda.time.Instant;
 
 /** Non-extensive POJO representation of a Token response object.
@@ -37,6 +38,7 @@ import org.joda.time.Instant;
 public final class TokenResponse {
 
   /** String representation of a signed JWT. */
+  @SerializedName("jwt")
   private String token;
   private long creationTimestampMs;
   private long expirationTimestampMs;

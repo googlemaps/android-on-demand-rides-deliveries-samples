@@ -27,6 +27,7 @@
 // limitations under the License.
 package com.google.mapsplatform.transportation.sample.driver.provider.response;
 
+import com.google.gson.annotations.SerializedName;
 import org.joda.time.Instant;
 
 /**
@@ -38,6 +39,7 @@ import org.joda.time.Instant;
 public final class TokenResponse {
 
   /** String representation of a signed JWT. */
+  @SerializedName("jwt")
   private String token;
 
   private long creationTimestampMs;

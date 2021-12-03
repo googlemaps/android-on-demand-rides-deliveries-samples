@@ -138,8 +138,6 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
     consumerViewModel = ViewModelProviders.of(this).get(ConsumerViewModel.class);
     consumerViewModel.setJourneySharingListener(this);
 
-    showStartupLocation();
-
     // If the permission is granted, then continue to initialize. Otherwise wait until
     // the permission is granted in onRequestPermissionResult().
     if (hasRequiredPermissions()) {
@@ -157,6 +155,8 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
    * that update the UI based on observed trip data.
    */
   private void initializeSdk() {
+    showStartupLocation();
+
     consumerMapView.getConsumerGoogleMapAsync(
         new ConsumerMapReadyCallback() {
           @Override
@@ -230,7 +230,9 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
               } else {
                 lastLocation = DEFAULT_MAP_LOCATION;
               }
-              centerCamera();
+              if (googleMap != null) {
+                centerCamera();
+              }
             });
   }
 

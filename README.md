@@ -31,8 +31,10 @@ The end result should be as follows:
 ## Getting started
 
 **NOTE**: The following instructions assume your project has gone through the
-Maps Platform onboarding process, a project in Google Cloud Console has been set
-up, and you have the appropriate API keys.
+Google Maps Platform
+[Get Started steps](https://developers.google.com/maps/gmp-get-started), a
+project in Google Cloud Console has been set up, and you have the appropriate
+API keys.
 
 ### Step 1 - Set up Google Cloud CLI (required)
 
@@ -77,24 +79,3 @@ The binary targets are `java.driver` and `java.consumer`.
 - [Installing Cloud SDK](https://cloud.google.com/sdk/docs/install)
 - [Transportation SDKs - Android SDK Setup](https://developers.google.com/maps/documentation/transportation-logistics/android_sdk_setup)
 - [Option 1: Using the credentials helper plugin (recommended)](https://developers.google.com/maps/documentation/transportation-logistics/android_sdk_setup#option_1_using_the_credentials_helper_plugin_recommended)
-
-## License
-
-```
-Copyright 2021 Google, Inc.
-
-Licensed to the Apache Software Foundation (ASF) under one or more contributor
-license agreements.  See the NOTICE file distributed with this work for
-additional information regarding copyright ownership.  The ASF licenses this
-file to you under the Apache License, Version 2.0 (the "License"); you may not
-use this file except in compliance with the License.  You may obtain a copy of
-the License at
-
-  http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
-License for the specific language governing permissions and limitations under
-the License.
-```

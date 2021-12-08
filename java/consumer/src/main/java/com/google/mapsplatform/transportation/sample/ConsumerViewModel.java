@@ -152,12 +152,6 @@ public class ConsumerViewModel extends AndroidViewModel {
         providerService.createSingleExclusiveTrip(
             createWaypointData(pickupLocation.getValue(), dropoffLocation.getValue()));
     handleCreateSingleExclusiveTripResponse(singleExclusiveTrip);
-    ListenableFuture<TripData> tripDataFuture =
-        Futures.transformAsync(
-            singleExclusiveTrip,
-            tripResponse -> providerService.fetchMatchedTrip(tripResponse.getTripName()),
-            executor);
-    handleFetchMatchedTripResponse(tripDataFuture);
   }
 
   private void handleCreateSingleExclusiveTripResponse(
@@ -169,6 +163,10 @@ public class ConsumerViewModel extends AndroidViewModel {
           public void onSuccess(TripResponse result) {
             Log.i(TAG, String.format("Successfully created trip %s.", result.getTripName()));
             tripStatus.postValue(TripStatus.parse(result.getTripStatus()));
+
+            ListenableFuture<TripData> tripDataFuture = providerService.fetchMatchedTrip(
+                result.getTripName());
+            handleFetchMatchedTripResponse(tripDataFuture);
           }
 
           @Override

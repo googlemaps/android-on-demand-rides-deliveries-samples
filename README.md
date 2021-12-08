@@ -10,11 +10,10 @@ This repository contains the source code of the following samples
 In order to run the full end-to-end **journey sharing** use case, you need 3
 components:
 
+- a [provider backend](https://github.com/googlemaps/java-on-demand-rides-deliveries-stub-provider)
+  as it can be utilized by both Android and iOS client samples.)
 - a driver app (included in this repository)
 - a consumer app (included in this repository)
-- a provider backend (included in a
-  [separate repository](https://github.com/googlemaps/java-on-demand-rides-deliveries-stub-provider),
-  as it can be utilized by both Android and iOS client samples.)
 
 ![diagram](documentation/samples_components.png)
 
@@ -28,51 +27,44 @@ The end result should be as follows:
 
 ![demo](documentation/journey_sharing.gif)
 
+## Prerequisites
+1. Please fully complete [Getting Started with Fleet Engine](https://developers.google.com/maps/documentation/transportation-logistics/on-demand-rides-deliveries-solution/trip-order-progress/fleet-engine)
+2. Please make sure the [provider backend](https://github.com/googlemaps/java-on-demand-rides-deliveries-stub-provider)
+is up and running.
+3. Please make sure two Android emulators are up and running by following
+[Create and manage virtual devices](https://developer.android.com/studio/run/managing-avds)
+
 ## Getting started
 
-**NOTE**: The following instructions assume your project has gone through the
-Google Maps Platform
-[Get Started steps](https://developers.google.com/maps/gmp-get-started), a
-project in Google Cloud Console has been set up, and you have the appropriate
-API keys.
+### Step 1 - Add API key and other metadata (required)
+In project root directory, create a `local.properties` file and add the
+following content:
 
-### Step 1 - Set up Google Cloud CLI (required)
-
-Follow the [official guide](https://cloud.google.com/sdk/docs/install) to
-install and setup Google Cloud CLI. This will help you easily pull gated SDK
-artifacts into the Gradle projects.
-
-Verify that the
-[credentials helper plugin](https://developers.google.com/maps/documentation/transportation-logistics/android_sdk_setup#option_1_using_the_credentials_helper_plugin_recommended)
-works on your DEV machine correctly.
-
-### Step 2 - Add API key and other metadata (required)
-
-In the root `local.properties` file, append the following lines
 ```
 MAPS_API_KEY=YOUR_API_KEY
 PROVIDER_ID=YOUR_PROVIDER_ID
-PROVIDER_URL=YOUR_PROVIDER_BASE_URL
+PROVIDER_URL=http://10.0.2.2:8080
 ```
 
-**NOTE**: The logic of reading provider ID and URL is in `ProviderUtils.java`.
-When changing `android:name="com.example.driver.sampleapp.provider_url"`, be
-sure to update the static fields in it.
 
-### Step 3 - Build and run
+### Step 2 - Build and run
 
-Import your project to Android Studio, or use Gradle to build and run the
-project.
+#### Use command line
 
 ```bash
-./gradlew :java:driver:assembleDebug
+./gradlew :java:driver:assembleDebug &&\
+adb -s YOUR_EMULATOR_ID shell am start -n com.google.mapsplatform.transportation.sample/.SplashScreenActivity
 ```
 
 ```bash
-./gradlew :java:consumer:assembleDebug
+./gradlew :java:consumer:assembleDebug &&\
+adb -s YOUR_EMULATOR_ID shell am start -n com.google.mapsplatform.transportation.sample.driver/.SplashScreenActivity
 ```
 
-The binary targets are `java.driver` and `java.consumer`.
+#### Use Android Studio
+The project can also be imported into Android Studio. The binary targets are
+`java.driver` and `java.consumer`, they can be deployed and launched by clicking
+Android Studio's "run" button.
 
 ## Important references
 

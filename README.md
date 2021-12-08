@@ -11,7 +11,7 @@ In order to run the full end-to-end **journey sharing** use case, you need 3
 components:
 
 - a [provider backend](https://github.com/googlemaps/java-on-demand-rides-deliveries-stub-provider)
-  as it can be utilized by both Android and iOS client samples.)
+  as it can be utilized by both Android and iOS client samples.
 - a driver app (included in this repository)
 - a consumer app (included in this repository)
 

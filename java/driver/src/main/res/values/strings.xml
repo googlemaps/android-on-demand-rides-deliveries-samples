@@ -2,6 +2,9 @@
     <!-- Name of the app  [CHAR_LIMIT=20]-->
     <string name="app_name">Driver App</string>
     <string name="msg_require_permissions">App will not function unless location permissions are granted</string>
+    <string name="msg_provider_connection_error">Can\'t connect to Provider backend</string>
+    <!-- Button label to retry to connect to the provider backend [CHAR_LIMIT=50] -->
+    <string name="button_retry">Retry</string>
 
     <!-- Label for vehicle add on top bar [CHAR_LIMIT=50] -->
     <string name="vehicle_id_label">Vehicle ID:</string>

@@ -31,11 +31,13 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.libraries.navigation.NavigationApi;
 import com.google.android.libraries.navigation.Navigator;
 import com.google.android.libraries.navigation.SupportNavigationFragment;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mapsplatform.transportation.sample.driver.dialog.VehicleDialogFragment;
 import com.google.mapsplatform.transportation.sample.driver.state.TripStatus;
+import java.net.ConnectException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -100,19 +102,7 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
                     executor,
                     MainActivity.this);
             vehicleController.setPresenter(MainActivity.this);
-            ListenableFuture<Boolean> done = vehicleController.initVehicleAndReporter(app);
-            Futures.addCallback(
-                done,
-                new FutureCallback<Boolean>() {
-                  @Override
-                  public void onSuccess(Boolean result) {
-                    vehicleController.pollTrip();
-                  }
-
-                  @Override
-                  public void onFailure(Throwable ignored) { }
-                },
-                executor);
+            initVehicleAndPollTrip();
           }
 
           @Override
@@ -120,6 +110,30 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
             logNavigationApiInitError(errorCode);
           }
         });
+  }
+
+  private void initVehicleAndPollTrip() {
+    Application app = (Application) getApplicationContext();
+    ListenableFuture<Boolean> future = vehicleController.initVehicleAndReporter(app);
+    Futures.addCallback(
+        future,
+        new FutureCallback<Boolean>() {
+          @Override
+          public void onSuccess(Boolean result) {
+            vehicleController.pollTrip();
+          }
+
+          @Override
+          public void onFailure(Throwable e) {
+            if (e instanceof ConnectException) {
+              Snackbar.make(
+                      tripCard, R.string.msg_provider_connection_error, Snackbar.LENGTH_INDEFINITE)
+                  .setAction(R.string.button_retry, view -> initVehicleAndPollTrip())
+                  .show();
+            }
+          }
+        },
+        executor);
   }
 
   private void setupNavFragment() {

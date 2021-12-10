@@ -46,6 +46,7 @@ import com.google.mapsplatform.transportation.sample.provider.response.WaypointR
 import com.google.mapsplatform.transportation.sample.provider.service.LocalProviderService;
 import com.google.mapsplatform.transportation.sample.state.AppStates;
 import java.lang.ref.WeakReference;
+import java.net.ConnectException;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -109,6 +110,9 @@ public class ConsumerViewModel extends AndroidViewModel {
   // The current active trip, meant for create journey sharing session and observe session.
   private final MutableLiveData<TripModel> trip = new MutableLiveData<>();
 
+  // Latest error message.
+  private final SingleLiveEvent<Integer> errorMessage = new SingleLiveEvent<>();
+
   private final LocalProviderService providerService;
   private final ExecutorService executor = Executors.newCachedThreadPool();
   private final Executor mainExecutor;
@@ -159,6 +163,7 @@ public class ConsumerViewModel extends AndroidViewModel {
           @Override
           public void onFailure(Throwable e) {
             Log.e(TAG, "Failed to create trip.", e);
+            setErrorMessage(e);
           }
         },
         executor);
@@ -176,6 +181,7 @@ public class ConsumerViewModel extends AndroidViewModel {
           @Override
           public void onFailure(Throwable e) {
             Log.e(TAG, "Failed to match trip with a driver.", e);
+            setErrorMessage(e);
           }
         },
         executor);
@@ -256,6 +262,7 @@ public class ConsumerViewModel extends AndroidViewModel {
           @Override
           public void onFailure(Throwable e) {
             Log.e(TAG, "Get cost call failed:", e);
+            setErrorMessage(e);
           }
         },
         executor);
@@ -319,6 +326,18 @@ public class ConsumerViewModel extends AndroidViewModel {
 
   public void setTrip(TripModel consumerTrip) {
     trip.setValue(consumerTrip);
+  }
+
+  public SingleLiveEvent<Integer> getErrorMessage() {
+    return errorMessage;
+  }
+
+  private void setErrorMessage(Throwable e) {
+    if (e instanceof ConnectException) {
+      mainExecutor.execute(() -> {
+        errorMessage.setValue(R.string.msg_provider_connection_error);
+      });
+    }
   }
 
   private WaypointData createWaypointData(LatLng pickup, LatLng dropoff) {

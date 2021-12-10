@@ -33,6 +33,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -58,6 +59,7 @@ import com.google.android.libraries.mapsplatform.transportation.consumer.view.Co
 import com.google.android.libraries.mapsplatform.transportation.consumer.view.ConsumerGoogleMap;
 import com.google.android.libraries.mapsplatform.transportation.consumer.view.ConsumerGoogleMap.ConsumerMapReadyCallback;
 import com.google.android.libraries.mapsplatform.transportation.consumer.view.ConsumerMapView;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.mapsplatform.transportation.sample.provider.ProviderUtils;
 import com.google.mapsplatform.transportation.sample.provider.model.TripData;
 import java.util.Date;
@@ -464,6 +466,10 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
     remainingDistanceView.setVisibility(View.VISIBLE);
   }
 
+  private void displayErrorMessage(@StringRes int message) {
+    Snackbar.make(tripStatusView, message, Snackbar.LENGTH_SHORT).show();
+  }
+
   private void initViews() {
     // Find the UI views for later updates.
     tripStatusView = findViewById(R.id.tripStatus);
@@ -503,6 +509,9 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
     consumerViewModel
         .getCostData()
         .observe(SampleAppActivity.this, SampleAppActivity.this::displayCostData);
+    consumerViewModel
+        .getErrorMessage()
+        .observe(SampleAppActivity.this, SampleAppActivity.this::displayErrorMessage);
   }
 
   private boolean hasRequiredPermissions() {

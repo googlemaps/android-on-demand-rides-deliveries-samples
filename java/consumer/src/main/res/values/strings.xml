@@ -24,6 +24,9 @@
     -->
   <string name="msg_require_permissions" translatable="false">App will not function unless location permissions are granted</string>
 
+  <!-- Snackbar message saying that the app cannot connect to the provider backend -->
+  <string name="msg_provider_connection_error" translatable="false">Can\'t connect to Provider backend</string>
+
   <!-- Begin state titles. -->
   <string name="state_initial" translatable="false">Waiting for trip</string>
   <!-- Waiting to find a driver. -->

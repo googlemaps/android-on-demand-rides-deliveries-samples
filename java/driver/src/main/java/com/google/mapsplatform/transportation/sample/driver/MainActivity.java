@@ -28,6 +28,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 import com.google.android.gms.maps.GoogleMap.CameraPerspective;
 import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.libraries.mapsplatform.transportation.driver.api.ridesharing.RidesharingDriverApi;
 import com.google.android.libraries.navigation.NavigationApi;
 import com.google.android.libraries.navigation.Navigator;
 import com.google.android.libraries.navigation.SupportNavigationFragment;
@@ -85,6 +86,9 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
     initializeSDKs();
+
+    Log.i(TAG, "Driver SDK version: " + RidesharingDriverApi.getDriverSdkVersion());
+    Log.i(TAG, "Navigation SDK version: " + NavigationApi.getNavSDKVersion());
   }
 
   private void initializeSDKs() {

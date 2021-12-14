@@ -136,6 +136,8 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
       ActivityCompat.requestPermissions(
           this, new String[] {permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION_PERMISSION_CODE);
     }
+
+    Log.i(TAG, "Consumer SDK version: " + ConsumerApi.getConsumerSDKVersion());
   }
 
   /**

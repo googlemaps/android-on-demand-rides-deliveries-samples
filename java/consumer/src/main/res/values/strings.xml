@@ -51,9 +51,6 @@
   <!--Label for Vehicle [CHAR_LIMIT=50] -->
   <string name="vehicle_id_label" translatable="false">Vehicle Id: %1$s</string>
 
-  <!-- Label for Custom Route cost [CHAR_LIMIT=50] -->
-  <string name="custom_route_cost_label" translatable="false">Cost: $%1$.2f</string>
-
   <!--Initial Button Label -->
   <string name="request_button_label" translatable="false">Request Trip</string>
   <string name="dropoff_label" translatable="false">Confirm Dropoff</string>

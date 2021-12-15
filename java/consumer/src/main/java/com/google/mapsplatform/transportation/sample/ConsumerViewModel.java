@@ -89,9 +89,6 @@ public class ConsumerViewModel extends AndroidViewModel {
   // LiveData for pickup location.
   private final MutableLiveData<LatLng> dropoffLocation = new MutableLiveData<>();
 
-  // LiveData for cost for a route.
-  private final MutableLiveData<Double> costData = new MutableLiveData<>();
-
   // LiveData of the current trip info from a trip refresh.
   private final MutableLiveData<Integer> tripStatus = new MutableLiveData<>();
 
@@ -247,27 +244,6 @@ public class ConsumerViewModel extends AndroidViewModel {
     this.journeySharingListener = new WeakReference<>(journeySharingListener);
   }
 
-  /** Gets the custom route cost with the given pickup and dropoff location. */
-  public void getCustomRouteCost() {
-    ListenableFuture<Double> costFuture =
-        providerService.fetchRouteCost(pickupLocation.getValue(), dropoffLocation.getValue());
-    Futures.addCallback(
-        costFuture,
-        new FutureCallback<Double>() {
-          @Override
-          public void onSuccess(Double cost) {
-            costData.postValue(cost);
-          }
-
-          @Override
-          public void onFailure(Throwable e) {
-            Log.e(TAG, "Get cost call failed:", e);
-            setErrorMessage(e);
-          }
-        },
-        executor);
-  }
-
   /** Set the app state. */
   public void setState(@AppStates int state) {
     appState.setValue(state);
@@ -307,11 +283,6 @@ public class ConsumerViewModel extends AndroidViewModel {
   /** Returns the trip id. */
   public LiveData<String> getTripId() {
     return tripId;
-  }
-
-  /** Returns the cost data. */
-  public LiveData<Double> getCostData() {
-    return costData;
   }
 
   /** Set the selected dropoff location. */

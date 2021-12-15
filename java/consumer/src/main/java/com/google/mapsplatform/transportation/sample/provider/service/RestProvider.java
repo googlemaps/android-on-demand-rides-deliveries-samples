@@ -17,7 +17,6 @@ package com.google.mapsplatform.transportation.sample.provider.service;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mapsplatform.transportation.sample.provider.model.WaypointData;
-import com.google.mapsplatform.transportation.sample.provider.response.CustomRouteResponse;
 import com.google.mapsplatform.transportation.sample.provider.response.GetTripResponse;
 import com.google.mapsplatform.transportation.sample.provider.response.TokenResponse;
 import com.google.mapsplatform.transportation.sample.provider.response.TripResponse;
@@ -26,7 +25,6 @@ import retrofit2.http.Body;
 import retrofit2.http.GET;
 import retrofit2.http.POST;
 import retrofit2.http.Path;
-import retrofit2.http.Query;
 
 /** Abstraction of expected REST endpoints implemented by a Provider. */
 interface RestProvider {
@@ -39,8 +37,4 @@ interface RestProvider {
 
   @GET("token/consumer")
   ListenableFuture<TokenResponse> getConsumerToken();
-
-  @GET("custom-route")
-  ListenableFuture<CustomRouteResponse> getCustomRoute(
-      @Query("pickup") String pickup, @Query("dropoff") String dropoff);
 }

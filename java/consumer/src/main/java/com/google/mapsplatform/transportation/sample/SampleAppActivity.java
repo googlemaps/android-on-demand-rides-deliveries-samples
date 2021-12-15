@@ -89,8 +89,6 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
   private TextView etaView;
   // Indicates the remaining distance to the next waypoint.
   private TextView remainingDistanceView;
-  // Indicates the cost of the route.
-  private TextView customRouteCostView;
   // The ridesharing map.
   private ConsumerMapView consumerMapView;
   // Request trip button to send a request to provider.
@@ -248,7 +246,6 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
                 updateMarker(
                     ConsumerMarkerType.PICKUP_POINT,
                     TerminalLocation.builder(cameraLocation).build());
-                consumerViewModel.getCustomRouteCost();
               }
             });
   }
@@ -291,7 +288,6 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
           setTripStatusTitle(R.string.state_enroute_to_pickup);
         } else {
           setTripStatusTitle(R.string.state_new);
-          customRouteCostView.setVisibility(View.INVISIBLE);
         }
         requestTripButton.setVisibility(View.INVISIBLE);
         break;
@@ -331,7 +327,6 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
       case JOURNEY_SHARING:
         pickupPin.setVisibility(View.INVISIBLE);
         setTripStatusTitle(R.string.state_enroute_to_pickup);
-        customRouteCostView.setVisibility(View.INVISIBLE);
         break;
       case INITIALIZED:
         tripStatusView.setVisibility(View.INVISIBLE);
@@ -397,17 +392,6 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
     int visibility = (tripInfo.getTripStatus() == TripStatus.COMPLETE
         || tripInfo.getTripStatus() == TripStatus.CANCELED) ? View.INVISIBLE : View.VISIBLE;
     vehicleIdView.setVisibility(visibility);
-  }
-
-  private void displayCostData(double cost) {
-    if (Double.compare(cost, 0) == 0) {
-      customRouteCostView.setVisibility(View.INVISIBLE);
-      customRouteCostView.setText("");
-      return;
-    }
-
-    customRouteCostView.setVisibility(View.VISIBLE);
-    customRouteCostView.setText(getResources().getString(R.string.custom_route_cost_label, cost));
   }
 
   private void onRequestTripButtonTapped(View view) {
@@ -482,7 +466,6 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
     consumerMapView = findViewById(R.id.consumer_map_view);
     pickupPin = findViewById(R.id.pickup_pin);
     dropoffPin = findViewById(R.id.dropoff_pin);
-    customRouteCostView = findViewById(R.id.customRouteCost);
     requestTripButton = findViewById(R.id.actionButton);
     requestTripButton.setOnClickListener(this::onRequestTripButtonTapped);
     resetRequestTripButton();
@@ -508,9 +491,6 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
     consumerViewModel
         .getRemainingDistanceMeters()
         .observe(SampleAppActivity.this, SampleAppActivity.this::displayRemainingDistance);
-    consumerViewModel
-        .getCostData()
-        .observe(SampleAppActivity.this, SampleAppActivity.this::displayCostData);
     consumerViewModel
         .getErrorMessage()
         .observe(SampleAppActivity.this, SampleAppActivity.this::displayErrorMessage);

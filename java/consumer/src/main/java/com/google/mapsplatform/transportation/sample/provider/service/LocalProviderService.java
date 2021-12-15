@@ -14,9 +14,6 @@
  */
 package com.google.mapsplatform.transportation.sample.provider.service;
 
-import static java.util.Locale.US;
-
-import com.google.android.gms.maps.model.LatLng;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripName;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Futures;
@@ -24,7 +21,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mapsplatform.transportation.sample.provider.model.TripData;
 import com.google.mapsplatform.transportation.sample.provider.model.TripStatus;
 import com.google.mapsplatform.transportation.sample.provider.model.WaypointData;
-import com.google.mapsplatform.transportation.sample.provider.response.CustomRouteResponse;
 import com.google.mapsplatform.transportation.sample.provider.response.GetTripResponse;
 import com.google.mapsplatform.transportation.sample.provider.response.TokenResponse;
 import com.google.mapsplatform.transportation.sample.provider.response.TripResponse;
@@ -58,19 +54,8 @@ public class LocalProviderService {
     this.scheduledExecutor = scheduledExecutor;
   }
 
-  /** String format of latlng. */
-  private static final String LATLNG_FORMAT = "%f,%f";
-
   public ListenableFuture<TripResponse> createSingleExclusiveTrip(WaypointData waypoint) {
     return provider.createSingleExclusiveTrip(waypoint);
-  }
-
-  public ListenableFuture<Double> fetchRouteCost(LatLng pickup, LatLng dropoff) {
-    ListenableFuture<CustomRouteResponse> routeFuture =
-        provider.getCustomRoute(
-            String.format(US, LATLNG_FORMAT, pickup.latitude, pickup.longitude),
-            String.format(US, LATLNG_FORMAT, dropoff.latitude, dropoff.longitude));
-    return Futures.transform(routeFuture, CustomRouteResponse::getCost, executor);
   }
 
   public ListenableFuture<TripData> fetchMatchedTrip(String tripName) {

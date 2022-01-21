@@ -19,6 +19,10 @@
     android:versionCode="1"
     android:versionName="1.0">
 
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <uses-permission android:name="android.permission.INTERNET" />
+
   <application
       android:icon="@drawable/ic_launcher"
       android:roundIcon="@mipmap/ic_launcher_round"
@@ -43,7 +47,7 @@
         android:windowSoftInputMode="adjustNothing">
     </activity> <!-- gmscore version -->
 
-    <!-- Please fill these fields with values from your Cloud project. -->
+    <!-- Please fill these fields in local.properties with values from your Cloud project. -->
     <meta-data
         android:name="com.google.android.geo.API_KEY"
         android:value="${MAPS_API_KEY}" />
@@ -63,9 +67,5 @@
         android:name="preloaded_fonts"
         android:resource="@array/preloaded_fonts" />
   </application>
-
-  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-  <uses-permission android:name="android.permission.INTERNET" />
-  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
 </manifest>

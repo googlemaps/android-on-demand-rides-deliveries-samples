@@ -107,7 +107,7 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
   // ViewModel for the consumer sample app.
   private ConsumerViewModel consumerViewModel;
 
-  @MonotonicNonNull private TripModelManager consumerTripManager;
+  @MonotonicNonNull private TripModelManager tripModelManager;
   @MonotonicNonNull private ConsumerController consumerController;
 
   // Session monitoring the current active trip.
@@ -159,11 +159,10 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
                     new TripAuthTokenFactory());
             consumerApiTask.addOnSuccessListener(
                 consumerApi ->
-                    consumerTripManager = requireNonNull(consumerApi.getTripModelManager()));
+                    tripModelManager = requireNonNull(consumerApi.getTripModelManager()));
             consumerApiTask.addOnFailureListener(
                 task -> Log.e(TAG, "ConsumerApi Initialization Error:\n" + task.getMessage()));
-            ConsumerMarkerUtils.setCustomMarkers(
-                requireNonNull(consumerController), SampleAppActivity.this);
+            ConsumerMarkerUtils.setCustomMarkers(consumerController, SampleAppActivity.this);
             setupViewBindings();
             googleMap = consumerGoogleMap;
             centerCamera();
@@ -177,7 +176,7 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
   @Override
   public TripModel startJourneySharing(TripData tripData) {
     consumerToken = tripData.token();
-    TripModel trip = requireNonNull(consumerTripManager).getTripModel(tripData.tripName());
+    TripModel trip = requireNonNull(tripModelManager).getTripModel(tripData.tripName());
     journeySharingSession = JourneySharingSession.createInstance(trip);
     requireNonNull(consumerController).showSession(journeySharingSession);
     return trip;
@@ -187,8 +186,8 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
   public void stopJourneySharing() {
     if (journeySharingSession != null) {
       journeySharingSession.stop();
+      journeySharingSession = null;
     }
-    journeySharingSession = null;
     requireNonNull(consumerController).hideAllSessions();
   }
 

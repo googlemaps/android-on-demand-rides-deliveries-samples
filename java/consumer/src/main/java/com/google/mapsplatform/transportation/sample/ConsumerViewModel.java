@@ -199,10 +199,10 @@ public class ConsumerViewModel extends AndroidViewModel {
     if (waypoints.size() != 2 || listener == null) {
       return;
     }
-    TripModel consumerTrip = listener.startJourneySharing(tripData);
-    trip.setValue(consumerTrip);
+    TripModel tripModel = listener.startJourneySharing(tripData);
+    trip.setValue(tripModel);
     appState.setValue(JOURNEY_SHARING);
-    consumerTrip.registerTripCallback(tripCallback);
+    tripModel.registerTripCallback(tripCallback);
   }
 
   /**
@@ -233,9 +233,9 @@ public class ConsumerViewModel extends AndroidViewModel {
 
   /** Unregisters callback as part of cleanup. */
   public void unregisterTripCallback() {
-    TripModel consumerTrip = trip.getValue();
-    if (consumerTrip != null) {
-      consumerTrip.unregisterTripCallback(tripCallback);
+    TripModel tripModel = trip.getValue();
+    if (tripModel != null) {
+      tripModel.unregisterTripCallback(tripCallback);
     }
     tripInfo.setValue(null);
   }
@@ -293,10 +293,6 @@ public class ConsumerViewModel extends AndroidViewModel {
   /** Set the selected pickup location. */
   public void setPickupLocation(LatLng location) {
     pickupLocation.setValue(location);
-  }
-
-  public void setTrip(TripModel consumerTrip) {
-    trip.setValue(consumerTrip);
   }
 
   public SingleLiveEvent<Integer> getErrorMessage() {

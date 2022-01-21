@@ -20,7 +20,7 @@ import com.google.gson.annotations.SerializedName;
 /**
  * Waypoint given by the sampleprovider
  *
- * <p>Sample JSON structure { "location": { "point": { "latitude": 3.456, "longitutde": 4.567 } },
+ * <p>Sample JSON structure { "location": { "point": { "latitude": 3.456, "longitude": 4.567 } },
  * "waypointType: "DROP_OFF_WAYPOINT_TYPE" }
  */
 public class WaypointResponse {

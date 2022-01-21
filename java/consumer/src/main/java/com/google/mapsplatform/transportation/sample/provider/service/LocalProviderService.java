@@ -61,7 +61,7 @@ public class LocalProviderService {
   public ListenableFuture<TripData> fetchMatchedTrip(String tripName) {
     String tripId = TripName.create(tripName).getTripId();
     ListenableFuture<TokenResponse> tokenFuture = provider.getConsumerToken();
-    ListenableFuture<GetTripResponse> getTripResponseFuture = fetchMatchedTripWithRetires(tripId);
+    ListenableFuture<GetTripResponse> getTripResponseFuture = fetchMatchedTripWithRetries(tripId);
     return Futures.whenAllSucceed(tokenFuture, getTripResponseFuture)
         .call(
             () -> {
@@ -79,7 +79,7 @@ public class LocalProviderService {
             executor);
   }
 
-  private ListenableFuture<GetTripResponse> fetchMatchedTripWithRetires(String tripId) {
+  private ListenableFuture<GetTripResponse> fetchMatchedTripWithRetries(String tripId) {
     return new RetryingFuture(scheduledExecutor)
         .runWithRetries(
             () -> provider.getTrip(tripId),

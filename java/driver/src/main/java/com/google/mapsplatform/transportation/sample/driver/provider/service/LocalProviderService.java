@@ -159,33 +159,32 @@ public class LocalProviderService {
   }
 
   private ListenableFuture<DriverTripConfig> fetchAvailableTrip(String vehicleId) {
-    ListenableFuture<String> tokenFuture = fetchAuthToken();
-    ListenableFuture<GetTripResponse> availableTripFuture = fetchAvailableTripWithRetires();
-    return Futures.whenAllSucceed(tokenFuture, availableTripFuture)
-        .call(
-            () -> {
-              GetTripResponse availableTripResponse = Futures.getDone(availableTripFuture);
-              TripData availableTrip = availableTripResponse.getTripData();
-              String tripName = availableTrip.getName();
-              // Expects trip name to be on format providers/<projectId>/trips/<tripId>
-              List<String> parts = SPLITTER.splitToList(tripName);
-              String tripId = Iterables.getLast(parts);
-              String projectId = parts.get(PROJECT_ID_INDEX);
-              DriverTripConfig config = new DriverTripConfig();
-              config.setTripId(tripId);
-              config.setVehicleId(vehicleId);
-              config.setProjectId(projectId);
-              config.setWaypoints(availableTrip.getWaypoints());
-              config.setRouteToken(availableTripResponse.getRouteToken());
-              return config;
-            },
-            executor);
+    ListenableFuture<GetTripResponse> availableTripFuture =
+        fetchAvailableTripWithRetires(vehicleId);
+    return Futures.transform(
+        availableTripFuture,
+        availableTripResponse -> {
+          TripData availableTrip = availableTripResponse.getTripData();
+          String tripName = availableTrip.getName();
+          // Expects trip name to be on format providers/<projectId>/trips/<tripId>
+          List<String> parts = SPLITTER.splitToList(tripName);
+          String tripId = Iterables.getLast(parts);
+          String projectId = parts.get(PROJECT_ID_INDEX);
+          DriverTripConfig config = new DriverTripConfig();
+          config.setTripId(tripId);
+          config.setVehicleId(vehicleId);
+          config.setProjectId(projectId);
+          config.setWaypoints(availableTrip.getWaypoints());
+          config.setRouteToken(availableTripResponse.getRouteToken());
+          return config;
+        },
+        executor);
   }
 
-  private ListenableFuture<GetTripResponse> fetchAvailableTripWithRetires() {
+  private ListenableFuture<GetTripResponse> fetchAvailableTripWithRetires(String vehicleId) {
     return new RetryingFuture(scheduledExecutor)
         .runWithRetries(
-            restProvider::getAvailableTrip,
+            () -> restProvider.getAvailableTrip(vehicleId),
             RetryingFuture.RUN_FOREVER,
             GET_TRIP_RETRY_INTERVAL_MILLIS,
             LocalProviderService::isTripValid);

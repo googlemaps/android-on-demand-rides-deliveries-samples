@@ -49,7 +49,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -89,7 +88,6 @@ public class VehicleController {
   private final ScheduledExecutorService scheduledExecutor =
       Executors.newSingleThreadScheduledExecutor();
   private final Executor sequentialExecutor;
-  private final AtomicBoolean isVehicleOnline = new AtomicBoolean(false);
   private final VehicleSimulator vehicleSimulator;
   private final VehicleIdStore vehicleIdStore;
 
@@ -125,29 +123,38 @@ public class VehicleController {
    * @return a signal that the async initialization is done, the boolean value can be ignored.
    */
   public ListenableFuture<Boolean> initVehicleAndReporter(Application application) {
+    // If there is a previous instance RidesharingDriverApi (we're updating vehicleId), we clear it
+    // to get a fresh one for the new vehicle.
+    if (RidesharingDriverApi.getInstance() != null) {
+      RidesharingDriverApi.clearInstance();
+    }
+
     registerVehicleFuture = initVehicle();
-    ListenableFuture<RidesharingVehicleReporter> vehicleReporterFuture =
+    ListenableFuture<Boolean> future =
         Futures.transform(
             registerVehicleFuture,
-            vehicleResponse ->
-                RidesharingDriverApi.createInstance(
-                        DriverContext.builder(application)
-                            .setNavigator(requireNonNull(navigator))
-                            .setProviderId(ProviderUtils.getProviderId(application))
-                            .setVehicleId(vehicleIdStore.readOrDefault())
-                            .setAuthTokenFactory(authTokenFactory)
-                            .setRoadSnappedLocationProvider(
-                                NavigationApi.getRoadSnappedLocationProvider(application))
-                            .setStatusListener(VehicleController::logLocationUpdate)
-                            .build())
-                    .getRidesharingVehicleReporter(),
+            vehicleResponse -> {
+              vehicleReporter =
+                  RidesharingDriverApi.createInstance(
+                          DriverContext.builder(application)
+                              .setNavigator(requireNonNull(navigator))
+                              .setProviderId(ProviderUtils.getProviderId(application))
+                              .setVehicleId(vehicleIdStore.readOrDefault())
+                              .setAuthTokenFactory(authTokenFactory)
+                              .setRoadSnappedLocationProvider(
+                                  NavigationApi.getRoadSnappedLocationProvider(application))
+                              .setStatusListener(VehicleController::logLocationUpdate)
+                              .build())
+                      .getRidesharingVehicleReporter();
+              return true;
+            },
             executor);
     Futures.addCallback(
-        vehicleReporterFuture,
-        new FutureCallback<RidesharingVehicleReporter>() {
+        future,
+        new FutureCallback<Boolean>() {
           @Override
-          public void onSuccess(RidesharingVehicleReporter vehicleReporter) {
-            VehicleController.this.vehicleReporter = vehicleReporter;
+          public void onSuccess(Boolean result) {
+            VehicleController.this.setVehicleOnline();
           }
 
           @Override
@@ -156,26 +163,7 @@ public class VehicleController {
           }
         },
         executor);
-    return Futures.transform(vehicleReporterFuture, vehicleReporter -> true, executor);
-  }
-
-  /** Initialize a vehicle. */
-  public ListenableFuture<VehicleResponse> initVehicle() {
-    ListenableFuture<VehicleResponse> registerVehicleFuture =
-        providerService.registerVehicle(vehicleIdStore.readOrDefault());
-    Futures.addCallback(
-        registerVehicleFuture,
-        new FutureCallback<VehicleResponse>() {
-          @Override
-          public void onSuccess(VehicleResponse vehicleResponse) {
-            vehicleIdStore.save(extractVehicleId(vehicleResponse.getName()));
-          }
-
-          @Override
-          public void onFailure(Throwable t) {}
-        },
-        executor);
-    return registerVehicleFuture;
+    return future;
   }
 
   /** Poll available trip to be paired. */
@@ -200,7 +188,6 @@ public class VehicleController {
                     presenter.showTripStatus(TripStatus.NEW);
                   });
             }
-            setVehicleOnline();
             updateTripStatus(TripStatus.NEW);
           }
 
@@ -210,11 +197,26 @@ public class VehicleController {
         executor);
   }
 
+  /** Initialize a vehicle. */
+  private ListenableFuture<VehicleResponse> initVehicle() {
+    ListenableFuture<VehicleResponse> registerVehicleFuture =
+        providerService.registerVehicle(vehicleIdStore.readOrDefault());
+    Futures.addCallback(
+        registerVehicleFuture,
+        new FutureCallback<VehicleResponse>() {
+          @Override
+          public void onSuccess(VehicleResponse vehicleResponse) {
+            vehicleIdStore.save(extractVehicleId(vehicleResponse.getName()));
+          }
+
+          @Override
+          public void onFailure(Throwable t) {}
+        },
+        executor);
+    return registerVehicleFuture;
+  }
+
   private void setVehicleOnline() {
-    if (isVehicleOnline.get()) {
-      return;
-    }
-    isVehicleOnline.set(true);
     vehicleReporter.setLocationReportingInterval(DEFAULT_LOCATION_UPDATE_INTERVAL_SECONDS, SECONDS);
 
     // enableLocationTracking() must be called before setting state to Online.
@@ -222,33 +224,27 @@ public class VehicleController {
     vehicleReporter.setVehicleState(VehicleState.ONLINE);
   }
 
-  private void setVehicleOffline() {
-    if (!isVehicleOnline.get()) {
-      return;
-    }
-    isVehicleOnline.set(false);
-    vehicleReporter.setVehicleState(VehicleState.OFFLINE);
-    vehicleReporter.disableLocationTracking();
-  }
-
   /** Updates {@link TripStatus} to the controller. */
   public void updateTripStatus(TripStatus status) {
-    if (tripStatus == status) {
-      return;
-    }
-    if (tripConfig == null) {
-      // Recommend using Guava's SequentialExecutor to change internal state if it's will be
-      // accessed in multiple threads.
-      sequentialExecutor.execute(() -> tripStatus = TripStatus.UNKNOWN_TRIP_STATUS);
-      return;
-    }
-    sequentialExecutor.execute(() -> tripStatus = status);
+    // Use Guava's SequentialExecutor to change the internal state because it is
+    // accessed in multiple threads.
+    sequentialExecutor.execute(
+        () -> {
+          if (tripStatus == status) {
+            return;
+          }
+          if (tripConfig == null) {
+            tripStatus = TripStatus.UNKNOWN_TRIP_STATUS;
+            return;
+          }
+          tripStatus = status;
 
-    if (status != TripStatus.UNKNOWN_TRIP_STATUS) {
-      providerService.updateTripStatus(tripConfig.getTripId(), status.toString());
-    }
+          if (status != TripStatus.UNKNOWN_TRIP_STATUS) {
+            providerService.updateTripStatus(tripConfig.getTripId(), status.toString());
+          }
 
-    updateVehicleByTripStatus(status);
+          updateVehicleByTripStatus(status);
+        });
   }
 
   /** Sets presenter to the controller so it can invokes UI related callbacks. */
@@ -283,7 +279,6 @@ public class VehicleController {
       case CANCELED:
         stopJourneySharing();
         vehicleSimulator.unsetLocation();
-        setVehicleOffline();
         onTripFinishedOrCancelled();
         break;
     }
@@ -321,8 +316,7 @@ public class VehicleController {
 
     if (isDropoff) {
       navigator.setDestinations(
-          Lists.newArrayList(destinationWaypoint),
-          driverTripConfig.getRouteToken());
+          Lists.newArrayList(destinationWaypoint), driverTripConfig.getRouteToken());
       return;
     }
     navigator.setDestination(destinationWaypoint);

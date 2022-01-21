@@ -26,6 +26,7 @@ import retrofit2.http.GET;
 import retrofit2.http.POST;
 import retrofit2.http.PUT;
 import retrofit2.http.Path;
+import retrofit2.http.Query;
 
 interface RestProvider {
 
@@ -36,7 +37,7 @@ interface RestProvider {
   ListenableFuture<TokenResponse> getAuthToken();
 
   @GET("trip/")
-  ListenableFuture<GetTripResponse> getAvailableTrip();
+  ListenableFuture<GetTripResponse> getAvailableTrip(@Query("vehicleId") String id);
 
   @POST("vehicle/new")
   ListenableFuture<VehicleResponse> createVehicle(@Body VehicleIdBody body);

@@ -27,7 +27,6 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 import com.google.android.gms.maps.GoogleMap.CameraPerspective;
-import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.libraries.mapsplatform.transportation.driver.api.ridesharing.RidesharingDriverApi;
 import com.google.android.libraries.navigation.NavigationApi;
 import com.google.android.libraries.navigation.Navigator;
@@ -157,7 +156,7 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
             vehicleId -> {
               textVehicleId.setText(vehicleId);
               vehicleIdStore.save(vehicleId);
-              vehicleController.initVehicle();
+              vehicleController.initVehicleAndReporter((Application) getApplicationContext());
             });
     fragment.show(getSupportFragmentManager(), "VehicleInfoDialog");
   }
@@ -176,10 +175,9 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
 
   private void updateCameraPerspective(Boolean isTilted) {
     navFragment.getMapAsync(
-        (OnMapReadyCallback)
-            googleMap ->
-                googleMap.followMyLocation(
-                    isTilted ? CameraPerspective.TILTED : CameraPerspective.TOP_DOWN_NORTH_UP));
+        googleMap ->
+            googleMap.followMyLocation(
+                isTilted ? CameraPerspective.TILTED : CameraPerspective.TOP_DOWN_NORTH_UP));
   }
 
   private void updateActionButton(Integer visibility, @Nullable Integer resourceId) {

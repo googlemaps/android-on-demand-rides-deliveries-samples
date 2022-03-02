@@ -27,7 +27,11 @@ public final class TokenResponse {
   /** String representation of a signed JWT. */
   @SerializedName("jwt")
   private String token;
+
+  @SerializedName("creationTimestamp")
   private long creationTimestampMs;
+
+  @SerializedName("expirationTimestamp")
   private long expirationTimestampMs;
 
   /**

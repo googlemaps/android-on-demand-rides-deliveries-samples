@@ -26,8 +26,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.mapsplatform.transportation.sample.driver.config.DriverTripConfig;
 import com.google.mapsplatform.transportation.sample.driver.config.DriverTripConfig.Point;
-import com.google.mapsplatform.transportation.sample.driver.provider.request.TripStatusBody;
 import com.google.mapsplatform.transportation.sample.driver.provider.request.VehicleIdBody;
+import com.google.mapsplatform.transportation.sample.driver.provider.request.TripUpdateBody;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.GetTripResponse;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.TokenResponse;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.TripData;
@@ -68,8 +68,8 @@ public class LocalProviderService {
   }
 
   /** Fetch JWT token from provider. */
-  public ListenableFuture<String> fetchAuthToken() {
-    return Futures.transform(restProvider.getAuthToken(), TokenResponse::getToken, executor);
+  public ListenableFuture<TokenResponse> fetchAuthToken() {
+    return restProvider.getAuthToken();
   }
 
   /**
@@ -96,27 +96,54 @@ public class LocalProviderService {
   }
 
   /**
-   * Updates the trip stats on a remote provider.
+   * Updates the trip status on a remote provider.
    *
    * @param tripId ID of the trip being updated.
    * @param status Fleet-Engine compatible name of the status.
    */
   public void updateTripStatus(String tripId, String status) {
-    TripStatusBody body = new TripStatusBody();
-    body.setStatus(status);
-    ListenableFuture<TripData> future = restProvider.updateTripStatus(tripId, body);
+    TripUpdateBody updateBody = new TripUpdateBody();
+    updateBody.setStatus(status);
+
+    updateTrip(tripId, updateBody);
+  }
+
+  /**
+   * Updates the trip status/intermediateDstinationIndex on a remote provider.
+   *
+   * @param tripId ID of the trip being updated.
+   * @param status Fleet-Engine compatible name of the status.
+   * @param intermediateDestinationIndex
+   */
+  public void updateTripStatusWithIntermediateDestinationIndex(
+      String tripId, String status, int intermediateDestinationIndex) {
+    TripUpdateBody updateBody = new TripUpdateBody();
+    updateBody.setStatus(status);
+    updateBody.setIntermediateDestinationIndex(intermediateDestinationIndex);
+
+    updateTrip(tripId, updateBody);
+  }
+
+  private void updateTrip(String tripId, TripUpdateBody updateBody) {
+    ListenableFuture<TripData> future = restProvider.updateTrip(tripId, updateBody);
+
     Futures.addCallback(
         future,
         new FutureCallback<TripData>() {
           @Override
           public void onSuccess(TripData tripData) {
             Log.i(
-                TAG, String.format("Successfully updated trip %s with status %s.", tripId, status));
+                TAG,
+                String.format(
+                    "Successfully updated trip %s with %s.", tripId, updateBody.toString()));
           }
 
           @Override
           public void onFailure(Throwable t) {
-            Log.e(TAG, String.format("Error updating trip %s with status %s.", tripId, status), t);
+            Log.e(
+                TAG,
+                String.format("Error updating trip %s with %s.", tripId, updateBody.toString()),
+                t);
           }
         },
         executor);

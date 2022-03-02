@@ -100,6 +100,7 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
             Application app = (Application) getApplicationContext();
             vehicleController =
                 new VehicleController(
+                    getApplication(),
                     navigator,
                     requireNonNull(NavigationApi.getRoadSnappedLocationProvider(app)),
                     executor,

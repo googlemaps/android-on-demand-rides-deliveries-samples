@@ -47,8 +47,6 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.tasks.Task;
 import com.google.android.libraries.mapsplatform.transportation.consumer.ConsumerApi;
-import com.google.android.libraries.mapsplatform.transportation.consumer.auth.AuthTokenContext;
-import com.google.android.libraries.mapsplatform.transportation.consumer.auth.AuthTokenFactory;
 import com.google.android.libraries.mapsplatform.transportation.consumer.managers.TripModel;
 import com.google.android.libraries.mapsplatform.transportation.consumer.managers.TripModelManager;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TerminalLocation;
@@ -91,8 +89,8 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
   private TextView remainingDistanceView;
   // The ridesharing map.
   private ConsumerMapView consumerMapView;
-  // Request trip button to send a request to provider.
-  private Button requestTripButton;
+  // Multipurpose button depending on the app state (could be for selecting, dropoff, pickup, or requesting trip)
+  private Button actionButton;
   // Dropoff pin in the center of the map.
   private View dropoffPin;
   // Pickup pin in the center of the map.
@@ -112,8 +110,6 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
 
   // Session monitoring the current active trip.
   @Nullable private JourneySharingSession journeySharingSession;
-
-  @MonotonicNonNull private String consumerToken;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -156,7 +152,7 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
                 ConsumerApi.initialize(
                     SampleAppActivity.this,
                     ProviderUtils.getProviderId(SampleAppActivity.this),
-                    new TripAuthTokenFactory());
+                    new TripAuthTokenFactory(getApplication()));
             consumerApiTask.addOnSuccessListener(
                 consumerApi ->
                     tripModelManager = requireNonNull(consumerApi.getTripModelManager()));
@@ -175,7 +171,6 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
 
   @Override
   public TripModel startJourneySharing(TripData tripData) {
-    consumerToken = tripData.token();
     TripModel trip = requireNonNull(tripModelManager).getTripModel(tripData.tripName());
     journeySharingSession = JourneySharingSession.createInstance(trip);
     requireNonNull(consumerController).showSession(journeySharingSession);
@@ -266,17 +261,17 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
   }
 
   /**
-   * When first selecting dropoff, the idle handler on map is not initiated since the map was
-   * already idle when selecting initial dropoff. Select the current location as dropoff initially.
+   * When first selecting pickup, the idle handler on map is not initiated since the map was
+   * already idle when selecting initial pickup. Select the current location as pickup initially.
    */
-  private void maybeSelectInitialDropoff() {
+  private void maybeSelectInitialPickup() {
     if (googleMap.getCameraPosition() == null) {
       return;
     }
     LatLng cameraLocation = googleMap.getCameraPosition().target;
     consumerViewModel.setDropoffLocation(cameraLocation);
     updateMarker(
-        ConsumerMarkerType.DROPOFF_POINT, TerminalLocation.builder(cameraLocation).build());
+        ConsumerMarkerType.PICKUP_POINT, TerminalLocation.builder(cameraLocation).build());
   }
 
   /** Display the trip status based on the observed trip status. */
@@ -288,7 +283,7 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
         } else {
           setTripStatusTitle(R.string.state_new);
         }
-        requestTripButton.setVisibility(View.INVISIBLE);
+        actionButton.setVisibility(View.INVISIBLE);
         break;
       case TripStatus.ENROUTE_TO_PICKUP:
         setTripStatusTitle(R.string.state_enroute_to_pickup);
@@ -312,24 +307,24 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
   /** Display the reported map state and show trip data when in journey sharing state. */
   private void displayAppState(int state) {
     switch (state) {
-      case SELECTING_DROPOFF:
-        setTripStatusTitle(R.string.state_select_dropoff);
-        dropoffPin.setVisibility(View.VISIBLE);
-        maybeSelectInitialDropoff();
-        break;
       case SELECTING_PICKUP:
         setTripStatusTitle(R.string.state_select_pickup);
         centerCamera();
         pickupPin.setVisibility(View.VISIBLE);
-        dropoffPin.setVisibility(View.INVISIBLE);
+        break;
+      case SELECTING_DROPOFF:
+        setTripStatusTitle(R.string.state_select_dropoff);
+        pickupPin.setVisibility(View.INVISIBLE);
+        dropoffPin.setVisibility(View.VISIBLE);
+        maybeSelectInitialPickup();
         break;
       case JOURNEY_SHARING:
-        pickupPin.setVisibility(View.INVISIBLE);
+        dropoffPin.setVisibility(View.INVISIBLE);
         setTripStatusTitle(R.string.state_enroute_to_pickup);
         break;
       case INITIALIZED:
         tripStatusView.setVisibility(View.INVISIBLE);
-        resetRequestTripButton();
+        resetActionButton();
         removeAllMarkers();
         hideTripData();
         break;
@@ -348,10 +343,10 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
   }
 
   /** Set button to be initial state. */
-  private void resetRequestTripButton() {
-    requestTripButton.setText(R.string.request_button_label);
-    requestTripButton.setVisibility(View.VISIBLE);
-    Drawable roundedButton = requestTripButton.getBackground();
+  private void resetActionButton() {
+    actionButton.setText(R.string.request_button_label);
+    actionButton.setVisibility(View.VISIBLE);
+    Drawable roundedButton = actionButton.getBackground();
     DrawableCompat.setTint(roundedButton,
         ContextCompat.getColor(this, R.color.actionable));
   }
@@ -393,21 +388,21 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
     vehicleIdView.setVisibility(visibility);
   }
 
-  private void onRequestTripButtonTapped(View view) {
+  private void onActionButtonTapped(View view) {
     int currentState = consumerViewModel.getAppState().getValue();
     switch (currentState) {
       case INITIALIZED:
         centerCamera();
         // fall through
       case UNINITIALIZED:
-        requestTripButton.setText(R.string.dropoff_label);
-        consumerViewModel.setState(SELECTING_DROPOFF);
-        break;
-      case SELECTING_DROPOFF:
-        requestTripButton.setText(R.string.pickup_label);
+        actionButton.setText(R.string.pickup_label);
         consumerViewModel.setState(SELECTING_PICKUP);
         break;
       case SELECTING_PICKUP:
+        actionButton.setText(R.string.dropoff_label);
+        consumerViewModel.setState(SELECTING_DROPOFF);
+        break;
+      case SELECTING_DROPOFF:
         // Create trip
         consumerViewModel.startSingleExclusiveTrip();
         break;
@@ -465,9 +460,9 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
     consumerMapView = findViewById(R.id.consumer_map_view);
     pickupPin = findViewById(R.id.pickup_pin);
     dropoffPin = findViewById(R.id.dropoff_pin);
-    requestTripButton = findViewById(R.id.actionButton);
-    requestTripButton.setOnClickListener(this::onRequestTripButtonTapped);
-    resetRequestTripButton();
+    actionButton = findViewById(R.id.actionButton);
+    actionButton.setOnClickListener(this::onActionButtonTapped);
+    resetActionButton();
   }
 
   private void setupViewBindings() {
@@ -538,15 +533,5 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
   protected void onDestroy() {
     super.onDestroy();
     consumerViewModel.unregisterTripCallback();
-  }
-
-  /** A factory for returning auth tokens for the currently assigned trip */
-  private class TripAuthTokenFactory implements AuthTokenFactory {
-
-    /** Returns the current trip token or null if there isn't a current trip. */
-    @Override
-    public String getToken(AuthTokenContext context) {
-      return requireNonNull(consumerToken);
-    }
   }
 }

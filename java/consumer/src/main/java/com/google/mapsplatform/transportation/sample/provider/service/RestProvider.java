@@ -14,13 +14,11 @@
  */
 package com.google.mapsplatform.transportation.sample.provider.service;
 
-
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mapsplatform.transportation.sample.provider.model.WaypointData;
 import com.google.mapsplatform.transportation.sample.provider.response.GetTripResponse;
 import com.google.mapsplatform.transportation.sample.provider.response.TokenResponse;
 import com.google.mapsplatform.transportation.sample.provider.response.TripResponse;
-
 import retrofit2.http.Body;
 import retrofit2.http.GET;
 import retrofit2.http.POST;

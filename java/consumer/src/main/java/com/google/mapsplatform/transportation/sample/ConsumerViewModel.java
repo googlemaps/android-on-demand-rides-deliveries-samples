@@ -16,7 +16,7 @@ package com.google.mapsplatform.transportation.sample;
 
 import static com.google.mapsplatform.transportation.sample.state.AppStates.INITIALIZED;
 import static com.google.mapsplatform.transportation.sample.state.AppStates.JOURNEY_SHARING;
-import static com.google.mapsplatform.transportation.sample.state.AppStates.SELECTING_PICKUP;
+import static com.google.mapsplatform.transportation.sample.state.AppStates.SELECTING_DROPOFF;
 import static com.google.mapsplatform.transportation.sample.state.AppStates.UNINITIALIZED;
 
 import android.app.Application;
@@ -41,6 +41,7 @@ import com.google.mapsplatform.transportation.sample.provider.ProviderUtils;
 import com.google.mapsplatform.transportation.sample.provider.model.TripData;
 import com.google.mapsplatform.transportation.sample.provider.model.TripStatus;
 import com.google.mapsplatform.transportation.sample.provider.model.WaypointData;
+import com.google.mapsplatform.transportation.sample.provider.response.TokenResponse;
 import com.google.mapsplatform.transportation.sample.provider.response.TripResponse;
 import com.google.mapsplatform.transportation.sample.provider.response.WaypointResponse;
 import com.google.mapsplatform.transportation.sample.provider.service.LocalProviderService;
@@ -134,6 +135,10 @@ public class ConsumerViewModel extends AndroidViewModel {
     mainExecutor = ContextCompat.getMainExecutor(application);
   }
 
+  public ListenableFuture<TokenResponse> fetchAuthToken() {
+    return providerService.fetchAuthToken();
+  }
+
   /** Creates a trip in the sample provider. */
   public void startSingleExclusiveTrip() {
     ListenableFuture<TripResponse> singleExclusiveTrip =
@@ -185,11 +190,11 @@ public class ConsumerViewModel extends AndroidViewModel {
   }
 
   public void startJourneySharing(TripData tripData) {
-    if (appState.getValue() != SELECTING_PICKUP) {
+    if (appState.getValue() != SELECTING_DROPOFF) {
       Log.e(
           TAG,
           String.format(
-              "App state should be `SELECTING_PICKUP` but is %d, journey sharing cannot be"
+              "App state should be `SELECTING_DROPOFF` but is %d, journey sharing cannot be"
                   + " started.",
               appState.getValue()));
       return;

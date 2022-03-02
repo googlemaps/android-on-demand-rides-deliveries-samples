@@ -15,7 +15,7 @@
 package com.google.mapsplatform.transportation.sample.driver.provider.service;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.mapsplatform.transportation.sample.driver.provider.request.TripStatusBody;
+import com.google.mapsplatform.transportation.sample.driver.provider.request.TripUpdateBody;
 import com.google.mapsplatform.transportation.sample.driver.provider.request.VehicleIdBody;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.GetTripResponse;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.TokenResponse;
@@ -29,7 +29,6 @@ import retrofit2.http.Path;
 import retrofit2.http.Query;
 
 interface RestProvider {
-
   @GET("vehicle/{id}")
   ListenableFuture<VehicleResponse> getVehicle(@Path("id") String vehicle);
 
@@ -43,5 +42,5 @@ interface RestProvider {
   ListenableFuture<VehicleResponse> createVehicle(@Body VehicleIdBody body);
 
   @PUT("trip/{id}")
-  ListenableFuture<TripData> updateTripStatus(@Path("id") String id, @Body TripStatusBody body);
+  ListenableFuture<TripData> updateTrip(@Path("id") String id, @Body TripUpdateBody body);
 }

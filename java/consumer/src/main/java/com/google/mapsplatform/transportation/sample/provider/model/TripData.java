@@ -35,9 +35,6 @@ public abstract class TripData {
   public abstract String vehicleId();
   public abstract String tripId();
 
-  /** Consumer token to connect with FleetEngine. */
-  public abstract String token();
-
   public static Builder newBuilder() {
     return new AutoValue_TripData.Builder();
   }
@@ -53,7 +50,6 @@ public abstract class TripData {
 
     public abstract Builder setVehicleId(String vehicleId);
     public abstract Builder setTripId(String tripId);
-    public abstract Builder setToken(String token);
 
     public abstract TripData build();
   }

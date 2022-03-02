@@ -21,8 +21,6 @@ import android.app.Application;
 import android.content.Context;
 import android.util.Log;
 import androidx.core.content.ContextCompat;
-import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.AuthTokenContext;
-import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.AuthTokenContext.AuthTokenFactory;
 import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.DriverContext;
 import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.DriverContext.StatusListener.StatusCode;
 import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.DriverContext.StatusListener.StatusLevel;
@@ -44,7 +42,6 @@ import com.google.mapsplatform.transportation.sample.driver.provider.response.Ve
 import com.google.mapsplatform.transportation.sample.driver.provider.service.LocalProviderService;
 import com.google.mapsplatform.transportation.sample.driver.state.TripStatus;
 import java.lang.ref.WeakReference;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -81,7 +78,7 @@ public class VehicleController {
 
   private final Navigator navigator;
   private final LocalProviderService providerService;
-  private final TripAuthTokenFactory authTokenFactory = new TripAuthTokenFactory();
+  private final TripAuthTokenFactory authTokenFactory;
 
   private final ExecutorService executor;
   private final Executor mainExecutor;
@@ -98,6 +95,7 @@ public class VehicleController {
   @Nullable private DriverTripConfig tripConfig;
 
   public VehicleController(
+      Application application,
       Navigator navigator,
       RoadSnappedLocationProvider roadSnappedLocationProvider,
       ExecutorService executor,
@@ -107,12 +105,16 @@ public class VehicleController {
     this.executor = executor;
     sequentialExecutor = MoreExecutors.newSequentialExecutor(executor);
     mainExecutor = ContextCompat.getMainExecutor(context);
+
     providerService =
         new LocalProviderService(
-            LocalProviderService.createRestProvider(ProviderUtils.getProviderBaseUrl(context)),
+            LocalProviderService.createRestProvider(ProviderUtils.getProviderBaseUrl(application)),
             this.executor,
             scheduledExecutor,
             roadSnappedLocationProvider);
+
+    authTokenFactory = new TripAuthTokenFactory(application, executor, roadSnappedLocationProvider);
+
     vehicleIdStore = new VehicleIdStore(context);
   }
 
@@ -350,19 +352,5 @@ public class VehicleController {
       return matches.group(VEHICLE_ID_INDEX);
     }
     return vehicleName;
-  }
-
-  private class TripAuthTokenFactory implements AuthTokenFactory {
-
-    @Override
-    public String getToken(AuthTokenContext context) {
-      try {
-        return requireNonNull(providerService.fetchAuthToken().get());
-      } catch (InterruptedException | ExecutionException e) {
-        e.printStackTrace();
-        Log.e(TAG, "getToken failed.", e);
-      }
-      return null;
-    }
   }
 }

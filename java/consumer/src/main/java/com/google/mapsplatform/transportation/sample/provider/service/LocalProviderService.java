@@ -58,25 +58,26 @@ public class LocalProviderService {
     return provider.createSingleExclusiveTrip(waypoint);
   }
 
+  public ListenableFuture<TokenResponse> fetchAuthToken() {
+    return provider.getConsumerToken();
+  }
+
   public ListenableFuture<TripData> fetchMatchedTrip(String tripName) {
     String tripId = TripName.create(tripName).getTripId();
-    ListenableFuture<TokenResponse> tokenFuture = provider.getConsumerToken();
     ListenableFuture<GetTripResponse> getTripResponseFuture = fetchMatchedTripWithRetries(tripId);
-    return Futures.whenAllSucceed(tokenFuture, getTripResponseFuture)
-        .call(
-            () -> {
-              TripResponse trip = Futures.getDone(getTripResponseFuture).getTrip();
-              String token = Futures.getDone(tokenFuture).getToken();
-              return TripData.newBuilder()
-                  .setTripId(tripId)
-                  .setTripName(trip.getTripName())
-                  .setVehicleId(trip.getVehicleId())
-                  .setTripStatus(TripStatus.parse(trip.getTripStatus()))
-                  .setWaypoints(Lists.newArrayList(trip.getWaypoints()))
-                  .setToken(token)
-                  .build();
-            },
-            executor);
+    return Futures.transform(
+        getTripResponseFuture,
+        getTripResponse -> {
+          TripResponse trip = getTripResponse.getTrip();
+          return TripData.newBuilder()
+              .setTripId(tripId)
+              .setTripName(trip.getTripName())
+              .setVehicleId(trip.getVehicleId())
+              .setTripStatus(TripStatus.parse(trip.getTripStatus()))
+              .setWaypoints(Lists.newArrayList(trip.getWaypoints()))
+              .build();
+        },
+        executor);
   }
 
   private ListenableFuture<GetTripResponse> fetchMatchedTripWithRetries(String tripId) {

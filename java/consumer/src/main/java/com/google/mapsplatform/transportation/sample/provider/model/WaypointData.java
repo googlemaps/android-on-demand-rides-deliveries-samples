@@ -15,6 +15,7 @@
 package com.google.mapsplatform.transportation.sample.provider.model;
 
 import com.google.android.gms.maps.model.LatLng;
+import com.google.common.collect.ImmutableList;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
@@ -30,7 +31,11 @@ import com.google.gson.annotations.SerializedName;
  *   dropoff: {
  *     latitude: 37.411895,
  *     longitude: -122.094247
- *   }
+ *   },
+ *   intermediateDestinations: [{
+ *     latitude: 35.12345,
+ *     longitude: -120.12343
+ *   }]
  * }
  */
 public class WaypointData {
@@ -42,6 +47,10 @@ public class WaypointData {
   @SerializedName("dropoff")
   @Expose
   private LatLng dropoff;
+
+  @SerializedName("intermediateDestinations")
+  @Expose
+  private ImmutableList<LatLng> intermediateDestinations;
 
   public LatLng getPickup() {
     return pickup;
@@ -57,5 +66,13 @@ public class WaypointData {
 
   public void setDropoff(LatLng dropoff) {
     this.dropoff = dropoff;
+  }
+
+  public ImmutableList<LatLng> getIntermediateDestinations() {
+    return intermediateDestinations;
+  }
+
+  public void setIntermediateDestinations(ImmutableList<LatLng> intermediateDestinations) {
+    this.intermediateDestinations = intermediateDestinations;
   }
 }

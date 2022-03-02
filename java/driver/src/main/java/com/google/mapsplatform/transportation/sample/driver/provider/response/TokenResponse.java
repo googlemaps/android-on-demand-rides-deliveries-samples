@@ -29,7 +29,10 @@ public final class TokenResponse {
   @SerializedName("jwt")
   private String token;
 
+  @SerializedName("creationTimestamp")
   private long creationTimestampMs;
+
+  @SerializedName("expirationTimestamp")
   private long expirationTimestampMs;
 
   /**

@@ -33,6 +33,7 @@ The end result should be as follows:
 is up and running.
 3. Please make sure two Android emulators are up and running by following
 [Create and manage virtual devices](https://developer.android.com/studio/run/managing-avds)
+4. This project follows Google's Java code style guide (https://google.github.io/styleguide/javaguide.html), please consider integrating into your IDE a plugin to automatically format your code as per guidelines. Example: https://github.com/google/google-java-format#intellij-android-studio-and-other-jetbrains-ides
 
 ## Getting started
 

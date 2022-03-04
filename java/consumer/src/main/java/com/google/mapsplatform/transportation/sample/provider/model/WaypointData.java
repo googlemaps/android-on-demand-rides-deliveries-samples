@@ -22,21 +22,9 @@ import com.google.gson.annotations.SerializedName;
 /**
  * Java object for pickup/dropoff points for sample provider.
  *
- * Sample JSON object:
- * {
- *   pickup: {
- *     latitude: 37.423061,
- *     longitude: -122.084051
- *   },
- *   dropoff: {
- *     latitude: 37.411895,
- *     longitude: -122.094247
- *   },
- *   intermediateDestinations: [{
- *     latitude: 35.12345,
- *     longitude: -120.12343
- *   }]
- * }
+ * <p>Sample JSON object: { pickup: { latitude: 37.423061, longitude: -122.084051 }, dropoff: {
+ * latitude: 37.411895, longitude: -122.094247 }, intermediateDestinations: [{ latitude: 35.12345,
+ * longitude: -120.12343 }] }
  */
 public class WaypointData {
 

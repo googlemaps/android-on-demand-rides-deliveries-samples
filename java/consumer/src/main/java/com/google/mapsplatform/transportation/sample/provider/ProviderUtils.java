@@ -26,8 +26,10 @@ import android.util.Log;
 /** Provides local provider related utilities. */
 public class ProviderUtils {
   private static final String TAG = "ProviderUtils";
-  private static final String PROVIDER_ID_KEY = "com.google.mapsplatform.transportation.sample.provider_id";
-  private static final String PROVIDER_URL_KEY = "com.google.mapsplatform.transportation.sample.provider_url";
+  private static final String PROVIDER_ID_KEY =
+      "com.google.mapsplatform.transportation.sample.provider_id";
+  private static final String PROVIDER_URL_KEY =
+      "com.google.mapsplatform.transportation.sample.provider_url";
 
   /**
    * Gets provider Id to communicate to provider server.

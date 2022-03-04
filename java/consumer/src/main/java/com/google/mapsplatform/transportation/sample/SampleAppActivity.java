@@ -66,7 +66,8 @@ import java.util.Map;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Main activity for the sample application. */
-public class SampleAppActivity extends AppCompatActivity implements ConsumerViewModel.JourneySharingListener {
+public class SampleAppActivity extends AppCompatActivity
+    implements ConsumerViewModel.JourneySharingListener {
 
   private static final String TAG = "SampleAppActivity";
 
@@ -89,7 +90,8 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
   private TextView remainingDistanceView;
   // The ridesharing map.
   private ConsumerMapView consumerMapView;
-  // Multipurpose button depending on the app state (could be for selecting, dropoff, pickup, or requesting trip)
+  // Multipurpose button depending on the app state (could be for selecting, dropoff, pickup, or
+  // requesting trip)
   private Button actionButton;
   // Dropoff pin in the center of the map.
   private View dropoffPin;
@@ -261,8 +263,8 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
   }
 
   /**
-   * When first selecting pickup, the idle handler on map is not initiated since the map was
-   * already idle when selecting initial pickup. Select the current location as pickup initially.
+   * When first selecting pickup, the idle handler on map is not initiated since the map was already
+   * idle when selecting initial pickup. Select the current location as pickup initially.
    */
   private void maybeSelectInitialPickup() {
     if (googleMap.getCameraPosition() == null) {
@@ -270,8 +272,7 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
     }
     LatLng cameraLocation = googleMap.getCameraPosition().target;
     consumerViewModel.setDropoffLocation(cameraLocation);
-    updateMarker(
-        ConsumerMarkerType.PICKUP_POINT, TerminalLocation.builder(cameraLocation).build());
+    updateMarker(ConsumerMarkerType.PICKUP_POINT, TerminalLocation.builder(cameraLocation).build());
   }
 
   /** Display the trip status based on the observed trip status. */
@@ -347,8 +348,7 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
     actionButton.setText(R.string.request_button_label);
     actionButton.setVisibility(View.VISIBLE);
     Drawable roundedButton = actionButton.getBackground();
-    DrawableCompat.setTint(roundedButton,
-        ContextCompat.getColor(this, R.color.actionable));
+    DrawableCompat.setTint(roundedButton, ContextCompat.getColor(this, R.color.actionable));
   }
 
   private void hideTripData() {
@@ -383,8 +383,11 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
         getResources().getString(R.string.vehicle_id_label, tripInfo.getVehicleId()));
     displayTripStatus(tripInfo.getTripStatus());
 
-    int visibility = (tripInfo.getTripStatus() == TripStatus.COMPLETE
-        || tripInfo.getTripStatus() == TripStatus.CANCELED) ? View.INVISIBLE : View.VISIBLE;
+    int visibility =
+        (tripInfo.getTripStatus() == TripStatus.COMPLETE
+                || tripInfo.getTripStatus() == TripStatus.CANCELED)
+            ? View.INVISIBLE
+            : View.VISIBLE;
     vehicleIdView.setVisibility(visibility);
   }
 
@@ -492,9 +495,9 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
 
   private boolean hasRequiredPermissions() {
     return ContextCompat.checkSelfPermission(this, permission.ACCESS_FINE_LOCATION)
-        == PackageManager.PERMISSION_GRANTED
+            == PackageManager.PERMISSION_GRANTED
         && ContextCompat.checkSelfPermission(this, permission.ACCESS_COARSE_LOCATION)
-        == PackageManager.PERMISSION_GRANTED;
+            == PackageManager.PERMISSION_GRANTED;
   }
 
   /**
@@ -522,7 +525,7 @@ public class SampleAppActivity extends AppCompatActivity implements ConsumerView
               dialogInterface.dismiss();
               ActivityCompat.requestPermissions(
                   this,
-                  new String[]{permission.ACCESS_FINE_LOCATION, permission.ACCESS_COARSE_LOCATION},
+                  new String[] {permission.ACCESS_FINE_LOCATION, permission.ACCESS_COARSE_LOCATION},
                   REQUEST_LOCATION_PERMISSION_CODE);
             })
         .create()

@@ -29,6 +29,7 @@ import androidx.core.content.ContextCompat;
 public class SplashScreenActivity extends AppCompatActivity {
 
   private static final int REQUEST_LOCATION_AND_STORAGE_PERMISSION_CODE = 99;
+
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);

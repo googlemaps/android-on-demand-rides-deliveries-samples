@@ -20,10 +20,7 @@ import java.lang.annotation.RetentionPolicy;
 
 /** Types of markers that are drawn by the sample app. */
 @Retention(RetentionPolicy.SOURCE)
-@IntDef({
-    ConsumerMarkerType.PICKUP_POINT,
-    ConsumerMarkerType.DROPOFF_POINT
-})
+@IntDef({ConsumerMarkerType.PICKUP_POINT, ConsumerMarkerType.DROPOFF_POINT})
 public @interface ConsumerMarkerType {
   /** Marker representing the pickup location. */
   int PICKUP_POINT = 1;

@@ -24,7 +24,6 @@ import com.google.mapsplatform.transportation.sample.provider.model.WaypointData
 import com.google.mapsplatform.transportation.sample.provider.response.GetTripResponse;
 import com.google.mapsplatform.transportation.sample.provider.response.TokenResponse;
 import com.google.mapsplatform.transportation.sample.provider.response.TripResponse;
-
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import retrofit2.Retrofit;

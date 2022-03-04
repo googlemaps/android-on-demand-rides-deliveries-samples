@@ -17,10 +17,11 @@ package com.google.mapsplatform.transportation.sample.provider.response;
 import com.google.gson.annotations.SerializedName;
 import org.joda.time.Instant;
 
-/** Non-extensive POJO representation of a Token response object.
+/**
+ * Non-extensive POJO representation of a Token response object.
  *
  * <p>Note: This class is implemented with standard setters to allow easier integration with
- * Retrofit framework.</p>
+ * Retrofit framework.
  */
 public final class TokenResponse {
 
@@ -55,4 +56,3 @@ public final class TokenResponse {
     return new Instant(expirationTimestampMs);
   }
 }
-

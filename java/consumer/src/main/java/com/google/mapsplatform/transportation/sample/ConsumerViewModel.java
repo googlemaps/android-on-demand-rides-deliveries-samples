@@ -157,8 +157,8 @@ public class ConsumerViewModel extends AndroidViewModel {
             Log.i(TAG, String.format("Successfully created trip %s.", result.getTripName()));
             tripStatus.postValue(TripStatus.parse(result.getTripStatus()));
 
-            ListenableFuture<TripData> tripDataFuture = providerService.fetchMatchedTrip(
-                result.getTripName());
+            ListenableFuture<TripData> tripDataFuture =
+                providerService.fetchMatchedTrip(result.getTripName());
             handleFetchMatchedTripResponse(tripDataFuture);
           }
 
@@ -306,9 +306,10 @@ public class ConsumerViewModel extends AndroidViewModel {
 
   private void setErrorMessage(Throwable e) {
     if (e instanceof ConnectException) {
-      mainExecutor.execute(() -> {
-        errorMessage.setValue(R.string.msg_provider_connection_error);
-      });
+      mainExecutor.execute(
+          () -> {
+            errorMessage.setValue(R.string.msg_provider_connection_error);
+          });
     }
   }
 

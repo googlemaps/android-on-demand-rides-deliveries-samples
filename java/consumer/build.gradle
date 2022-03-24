@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 plugins {
-    id "com.google.cloud.artifactregistry.gradle-plugin" version "2.1.1"
+    id "com.google.cloud.artifactregistry.gradle-plugin" version "2.1.5"
 }
 
 repositories {

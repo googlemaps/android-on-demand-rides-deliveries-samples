@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.mapsplatform.transportation.sample.provider.service;
+package com.google.mapsplatform.transportation.sample.consumer.provider.service;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

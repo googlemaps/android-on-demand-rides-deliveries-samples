@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.mapsplatform.transportation.sample.state;
+package com.google.mapsplatform.transportation.sample.consumer.state;
 
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
@@ -26,6 +26,7 @@ import java.lang.annotation.Retention;
   AppStates.INITIALIZED,
   AppStates.SELECTING_DROPOFF,
   AppStates.SELECTING_PICKUP,
+  AppStates.CONFIRMING_TRIP,
   AppStates.JOURNEY_SHARING,
   AppStates.TRIP_CANCELED,
   AppStates.TRIP_COMPLETE
@@ -35,6 +36,7 @@ public @interface AppStates {
   int INITIALIZED = 1;
   int SELECTING_DROPOFF = 2;
   int SELECTING_PICKUP = 3;
+  int CONFIRMING_TRIP = 4;
   int JOURNEY_SHARING = 5;
   int TRIP_CANCELED = 6;
   int TRIP_COMPLETE = 7;

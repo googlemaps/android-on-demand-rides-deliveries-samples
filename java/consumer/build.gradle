@@ -31,7 +31,7 @@ android {
     buildToolsVersion "30.0.2"
 
     defaultConfig {
-        applicationId "com.google.mapsplatform.transportation.sample"
+        applicationId "com.google.mapsplatform.transportation.sample.consumer"
         minSdkVersion 23
         targetSdkVersion 31
         versionCode 1
@@ -74,7 +74,7 @@ dependencies {
     implementation 'com.squareup.retrofit2:retrofit:2.9.0'
     implementation 'com.squareup.retrofit2:adapter-guava:2.9.0'
     implementation 'org.checkerframework:checker-qual:3.18.0'
-    implementation "com.google.android.libraries.mapsplatform.transportation:transportation-consumer:1.0.14"
+    implementation "com.google.android.libraries.mapsplatform.transportation:transportation-consumer:1.0.19"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$anroidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$espressoVersion"

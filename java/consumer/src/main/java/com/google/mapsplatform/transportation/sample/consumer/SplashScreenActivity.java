@@ -12,10 +12,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.mapsplatform.transportation.sample.driver;
+package com.google.mapsplatform.transportation.sample.consumer;
 
-import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -25,18 +25,18 @@ import androidx.core.app.ActivityCompat;
 /** Activity for the splash screen shown upon app initialization. */
 public class SplashScreenActivity extends AppCompatActivity {
 
-  private static final int APP_PERMISSION_REQUEST_CODE = 99;
+  private static final int REQUEST_LOCATION_PERMISSION_CODE = 99;
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
 
-    String[] permissionsToRequest = PermissionUtils.getPermissionsToRequest(this);
-
-    if (permissionsToRequest.length == 0) {
-      loadMainActivity();
+    // Check for location permissions, prompting if not granted.
+    if (!PermissionUtils.hasRequiredRuntimePermissions(this)) {
+      ActivityCompat.requestPermissions(
+          this, PermissionUtils.PERMISSIONS_TO_REQUEST, REQUEST_LOCATION_PERMISSION_CODE);
     } else {
-      ActivityCompat.requestPermissions(this, permissionsToRequest, APP_PERMISSION_REQUEST_CODE);
+      loadMainActivity();
     }
   }
 
@@ -46,35 +46,32 @@ public class SplashScreenActivity extends AppCompatActivity {
       int requestCode, String[] permissions, int[] grantResults) {
     super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-    if (requestCode != APP_PERMISSION_REQUEST_CODE) {
+    if (requestCode != REQUEST_LOCATION_PERMISSION_CODE) {
       return;
     }
 
-    String[] permissionsToRequest = PermissionUtils.getPermissionsToRequest(this);
-
-    if (permissionsToRequest.length == 0) {
+    if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
       loadMainActivity();
-    } else {
-      String missingPermissionsText = String.join(", ", permissionsToRequest);
-
-      new AlertDialog.Builder(this)
-          .setTitle("")
-          .setMessage(
-              getResources().getString(R.string.msg_require_permissions, missingPermissionsText))
-          .setPositiveButton(
-              android.R.string.ok,
-              (DialogInterface dialog, int which) -> {
-                dialog.dismiss();
-                ActivityCompat.requestPermissions(
-                    this, permissionsToRequest, APP_PERMISSION_REQUEST_CODE);
-              })
-          .create()
-          .show();
+      return;
     }
+
+    // Tell the user that we need location permissions.
+    new AlertDialog.Builder(this)
+        .setTitle("")
+        .setMessage(R.string.msg_require_permissions)
+        .setPositiveButton(
+            android.R.string.ok,
+            (dialogInterface, i) -> {
+              dialogInterface.dismiss();
+              ActivityCompat.requestPermissions(
+                  this, PermissionUtils.PERMISSIONS_TO_REQUEST, REQUEST_LOCATION_PERMISSION_CODE);
+            })
+        .create()
+        .show();
   }
 
   private void loadMainActivity() {
-    startActivity(new Intent(this, MainActivity.class));
+    startActivity(new Intent(this, SampleAppActivity.class));
     finish();
   }
 }

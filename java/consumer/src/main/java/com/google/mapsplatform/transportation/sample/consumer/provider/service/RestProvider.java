@@ -12,13 +12,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.mapsplatform.transportation.sample.provider.service;
+package com.google.mapsplatform.transportation.sample.consumer.provider.service;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.mapsplatform.transportation.sample.provider.model.WaypointData;
-import com.google.mapsplatform.transportation.sample.provider.response.GetTripResponse;
-import com.google.mapsplatform.transportation.sample.provider.response.TokenResponse;
-import com.google.mapsplatform.transportation.sample.provider.response.TripResponse;
+import com.google.mapsplatform.transportation.sample.consumer.provider.model.WaypointData;
+import com.google.mapsplatform.transportation.sample.consumer.provider.response.GetTripResponse;
+import com.google.mapsplatform.transportation.sample.consumer.provider.response.TokenResponse;
+import com.google.mapsplatform.transportation.sample.consumer.provider.response.TripResponse;
 import retrofit2.http.Body;
 import retrofit2.http.GET;
 import retrofit2.http.POST;
@@ -33,6 +33,6 @@ interface RestProvider {
   @GET("trip/{tripId}")
   ListenableFuture<GetTripResponse> getTrip(@Path("tripId") String tripId);
 
-  @GET("token/consumer")
-  ListenableFuture<TokenResponse> getConsumerToken();
+  @GET("token/consumer/{tripId}")
+  ListenableFuture<TokenResponse> getConsumerToken(@Path("tripId") String tripId);
 }

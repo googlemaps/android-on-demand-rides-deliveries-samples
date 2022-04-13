@@ -12,12 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.mapsplatform.transportation.sample;
-
-import static com.google.mapsplatform.transportation.sample.state.AppStates.INITIALIZED;
-import static com.google.mapsplatform.transportation.sample.state.AppStates.JOURNEY_SHARING;
-import static com.google.mapsplatform.transportation.sample.state.AppStates.SELECTING_DROPOFF;
-import static com.google.mapsplatform.transportation.sample.state.AppStates.UNINITIALIZED;
+package com.google.mapsplatform.transportation.sample.consumer;
 
 import android.app.Application;
 import android.util.Log;
@@ -32,20 +27,22 @@ import com.google.android.libraries.mapsplatform.transportation.consumer.manager
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.Trip;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripInfo;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripName;
+import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripWaypoint;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.VehicleLocation;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.mapsplatform.transportation.sample.provider.ProviderUtils;
-import com.google.mapsplatform.transportation.sample.provider.model.TripData;
-import com.google.mapsplatform.transportation.sample.provider.model.TripStatus;
-import com.google.mapsplatform.transportation.sample.provider.model.WaypointData;
-import com.google.mapsplatform.transportation.sample.provider.response.TokenResponse;
-import com.google.mapsplatform.transportation.sample.provider.response.TripResponse;
-import com.google.mapsplatform.transportation.sample.provider.response.WaypointResponse;
-import com.google.mapsplatform.transportation.sample.provider.service.LocalProviderService;
-import com.google.mapsplatform.transportation.sample.state.AppStates;
+import com.google.mapsplatform.transportation.sample.consumer.provider.ProviderUtils;
+import com.google.mapsplatform.transportation.sample.consumer.provider.model.TripData;
+import com.google.mapsplatform.transportation.sample.consumer.provider.model.TripStatus;
+import com.google.mapsplatform.transportation.sample.consumer.provider.model.WaypointData;
+import com.google.mapsplatform.transportation.sample.consumer.provider.response.TokenResponse;
+import com.google.mapsplatform.transportation.sample.consumer.provider.response.TripResponse;
+import com.google.mapsplatform.transportation.sample.consumer.provider.response.WaypointResponse;
+import com.google.mapsplatform.transportation.sample.consumer.provider.service.LocalProviderService;
+import com.google.mapsplatform.transportation.sample.consumer.state.AppStates;
 import java.lang.ref.WeakReference;
 import java.net.ConnectException;
 import java.util.List;
@@ -90,6 +87,10 @@ public class ConsumerViewModel extends AndroidViewModel {
   // LiveData for pickup location.
   private final MutableLiveData<LatLng> dropoffLocation = new MutableLiveData<>();
 
+  // LiveData for selected intermediate destinations. (multi-destination trips)
+  private final MutableLiveData<ImmutableList<LatLng>> intermediateDestinations =
+      new MutableLiveData<>();
+
   // LiveData of the current trip info from a trip refresh.
   private final MutableLiveData<Integer> tripStatus = new MutableLiveData<>();
 
@@ -107,6 +108,11 @@ public class ConsumerViewModel extends AndroidViewModel {
 
   // The current active trip, meant for create journey sharing session and observe session.
   private final MutableLiveData<TripModel> trip = new MutableLiveData<>();
+
+  // LiveData containing a potential list of waypoints the driver is going through before the
+  // current trip (B2B)
+  private final MutableLiveData<ImmutableList<TripWaypoint>> previousTripWaypoints =
+      new MutableLiveData<>();
 
   // Latest error message.
   private final SingleLiveEvent<Integer> errorMessage = new SingleLiveEvent<>();
@@ -131,19 +137,23 @@ public class ConsumerViewModel extends AndroidViewModel {
             LocalProviderService.createRestProvider(ProviderUtils.getProviderBaseUrl(application)),
             executor,
             scheduledExecutor);
-    appState.setValue(UNINITIALIZED);
+    appState.setValue(AppStates.UNINITIALIZED);
     mainExecutor = ContextCompat.getMainExecutor(application);
   }
 
-  public ListenableFuture<TokenResponse> fetchAuthToken() {
-    return providerService.fetchAuthToken();
+  public ListenableFuture<TokenResponse> fetchAuthToken(String tripId) {
+    return providerService.fetchAuthToken(tripId);
   }
 
   /** Creates a trip in the sample provider. */
   public void startSingleExclusiveTrip() {
     ListenableFuture<TripResponse> singleExclusiveTrip =
         providerService.createSingleExclusiveTrip(
-            createWaypointData(pickupLocation.getValue(), dropoffLocation.getValue()));
+            createWaypointData(
+                pickupLocation.getValue(),
+                dropoffLocation.getValue(),
+                intermediateDestinations.getValue()));
+
     handleCreateSingleExclusiveTripResponse(singleExclusiveTrip);
   }
 
@@ -190,7 +200,7 @@ public class ConsumerViewModel extends AndroidViewModel {
   }
 
   public void startJourneySharing(TripData tripData) {
-    if (appState.getValue() != SELECTING_DROPOFF) {
+    if (appState.getValue() != AppStates.CONFIRMING_TRIP) {
       Log.e(
           TAG,
           String.format(
@@ -201,12 +211,13 @@ public class ConsumerViewModel extends AndroidViewModel {
     }
     List<WaypointResponse> waypoints = tripData.waypoints();
     JourneySharingListener listener = journeySharingListener.get();
-    if (waypoints.size() != 2 || listener == null) {
+
+    if (waypoints.size() < 2 || listener == null) {
       return;
     }
     TripModel tripModel = listener.startJourneySharing(tripData);
     trip.setValue(tripModel);
-    appState.setValue(JOURNEY_SHARING);
+    appState.setValue(AppStates.JOURNEY_SHARING);
     tripModel.registerTripCallback(tripCallback);
   }
 
@@ -220,6 +231,7 @@ public class ConsumerViewModel extends AndroidViewModel {
         || status == Trip.TripStatus.CANCELED
         || status == Trip.TripStatus.UNKNOWN_TRIP_STATUS) {
       stopJourneySharing();
+      intermediateDestinations.setValue(ImmutableList.of());
     }
   }
 
@@ -231,7 +243,7 @@ public class ConsumerViewModel extends AndroidViewModel {
     }
     ScheduledFuture<?> unused =
         scheduledExecutor.schedule(
-            () -> mainExecutor.execute(() -> appState.setValue(INITIALIZED)),
+            () -> mainExecutor.execute(() -> appState.setValue(AppStates.INITIALIZED)),
             IDLE_STATE_RESET_DELAY_SECONDS,
             TimeUnit.SECONDS);
   }
@@ -270,6 +282,15 @@ public class ConsumerViewModel extends AndroidViewModel {
     return tripInfo != null && !Strings.isNullOrEmpty(tripInfo.getVehicleId());
   }
 
+  /**
+   * Checks if the next waypoint is part of the current user trip (if not, driver might be dropping
+   * someone else as part of a B2B trip). Only call when there's a trip assigned.
+   */
+  public boolean isDriverCompletingAnotherTrip() {
+    return getPreviousTripWaypoints().getValue() != null
+        && !getPreviousTripWaypoints().getValue().isEmpty();
+  }
+
   /** Returns the current trip {@link Trip.TripStatus} for each status change during the trip. */
   public LiveData<Integer> getTripStatus() {
     return tripStatus;
@@ -290,14 +311,71 @@ public class ConsumerViewModel extends AndroidViewModel {
     return tripId;
   }
 
+  /** Returns the list of previous trip waypoints (B2B support) */
+  public LiveData<ImmutableList<TripWaypoint>> getPreviousTripWaypoints() {
+    return previousTripWaypoints;
+  }
+
+  /** Updates the location container (pickup or dropoff) given by the current app state. */
+  public void updateLocationPointForState(LatLng cameraLocation) {
+    @AppStates int state = this.appState.getValue();
+
+    if (state != AppStates.SELECTING_PICKUP && state != AppStates.SELECTING_DROPOFF) {
+      return;
+    }
+
+    if (state == AppStates.SELECTING_PICKUP) {
+      setPickupLocation(cameraLocation);
+    } else {
+      setDropoffLocation(cameraLocation);
+    }
+  }
+
   /** Set the selected dropoff location. */
   public void setDropoffLocation(LatLng location) {
     dropoffLocation.setValue(location);
   }
 
+  /** Gets the selected dropoff location (or null if not selected) */
+  public LatLng getDropoffLocation() {
+    return dropoffLocation.getValue();
+  }
+
   /** Set the selected pickup location. */
   public void setPickupLocation(LatLng location) {
     pickupLocation.setValue(location);
+  }
+
+  /** Gets the selected pickup location (or null if not selected) */
+  public LatLng getPickupLocation() {
+    return pickupLocation.getValue();
+  }
+
+  /**
+   * Adds the current selected location (contained in dropoffLocation) to the list of intermediate
+   * destinations.
+   */
+  public void addIntermediateDestination() {
+    LatLng destination = dropoffLocation.getValue();
+
+    if (destination == null) {
+      return;
+    }
+
+    if (intermediateDestinations.getValue() == null) {
+      intermediateDestinations.setValue(ImmutableList.of());
+    }
+
+    intermediateDestinations.setValue(
+        ImmutableList.<LatLng>builder()
+            .addAll(intermediateDestinations.getValue())
+            .add(destination)
+            .build());
+  }
+
+  /** Retrieves the list of intermediate destinations added so far to the trip. */
+  public List<LatLng> getIntermediateDestinations() {
+    return intermediateDestinations.getValue();
   }
 
   public SingleLiveEvent<Integer> getErrorMessage() {
@@ -306,17 +384,19 @@ public class ConsumerViewModel extends AndroidViewModel {
 
   private void setErrorMessage(Throwable e) {
     if (e instanceof ConnectException) {
-      mainExecutor.execute(
-          () -> {
-            errorMessage.setValue(R.string.msg_provider_connection_error);
-          });
+      mainExecutor.execute(() -> errorMessage.setValue(R.string.msg_provider_connection_error));
     }
   }
 
-  private WaypointData createWaypointData(LatLng pickup, LatLng dropoff) {
+  /** Creates a WaypointData object which contains all the locations used to create a trip. */
+  private WaypointData createWaypointData(
+      LatLng pickup, LatLng dropoff, ImmutableList<LatLng> intermediateDestinations) {
     WaypointData waypoints = new WaypointData();
+
     waypoints.setDropoff(dropoff);
     waypoints.setPickup(pickup);
+    waypoints.setIntermediateDestinations(intermediateDestinations);
+
     return waypoints;
   }
 
@@ -351,11 +431,32 @@ public class ConsumerViewModel extends AndroidViewModel {
             TripInfo tripInfo, @Nullable VehicleLocation vehicleLocation) {
           maybeUpdateCurrentLocation(vehicleLocation);
         }
+
+        @Override
+        public void onTripRemainingWaypointsUpdated(
+            TripInfo tripInfo, List<TripWaypoint> waypointList) {
+          ImmutableList.Builder<TripWaypoint> previousTripWaypointsBuilder =
+              new ImmutableList.Builder<>();
+
+          String currentTripId = TripName.create(tripInfo.getTripName()).getTripId();
+
+          for (TripWaypoint tripWaypoint : waypointList) {
+            if (tripWaypoint.getTripId().equals(currentTripId)) {
+              break;
+            }
+
+            previousTripWaypointsBuilder.add(tripWaypoint);
+          }
+
+          previousTripWaypoints.setValue(previousTripWaypointsBuilder.build());
+        }
       };
 
   private void maybeUpdateCurrentLocation(@Nullable VehicleLocation vehicleLocation) {
     JourneySharingListener listener = journeySharingListener.get();
-    if (appState.getValue() == JOURNEY_SHARING && listener != null && vehicleLocation != null) {
+    if (appState.getValue() == AppStates.JOURNEY_SHARING
+        && listener != null
+        && vehicleLocation != null) {
       listener.updateCurrentLocation(vehicleLocation.getLatLng());
     }
   }

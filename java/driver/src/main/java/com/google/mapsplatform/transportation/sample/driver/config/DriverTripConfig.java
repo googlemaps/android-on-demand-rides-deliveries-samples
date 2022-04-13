@@ -74,7 +74,7 @@ public class DriverTripConfig {
       return location;
     }
 
-    /** Returns the type of waypoint, either pickup or dropoff. */
+    /** Returns the type of waypoint, pickup, dropoff, or intermediateDestination. */
     public String getWaypointType() {
       return waypointType;
     }
@@ -139,20 +139,17 @@ public class DriverTripConfig {
   }
 
   /**
-   * Returns the waypoint of type.
+   * Returns the waypoint at given index.
    *
-   * @param type Waypoint type {@link com.example.driver.sampleapp.Vehicle#PICKUP_WAYPOINT} or
-   *     {@link com.example.driver.sampleapp.Vehicle#DROP_OFF_WAYPOINT}.
+   * @param index Waypoint index
    * @return The {@link Waypoint} found or null.
    */
-  public Waypoint getWaypoint(String type) {
-    Waypoint[] waypoints = getWaypoints();
-    for (Waypoint waypoint : waypoints) {
-      if (type.equalsIgnoreCase(waypoint.getWaypointType())) {
-        return waypoint;
-      }
+  public Waypoint getWaypoint(int index) {
+    if (index < 0 || index == waypoints.length) {
+      return null;
     }
-    return null;
+
+    return waypoints[index];
   }
 
   public void setProjectId(String projectId) {

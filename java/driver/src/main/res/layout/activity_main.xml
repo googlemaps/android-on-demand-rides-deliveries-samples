@@ -27,7 +27,6 @@
       android:layout_height="36dp"
       android:layout_marginTop="@dimen/status_bar_height"
       android:background="@color/primaryColor">
-
     <Button
         android:id="@+id/edit_button"
         android:layout_width="24dp"
@@ -69,6 +68,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
   </androidx.constraintlayout.widget.ConstraintLayout>
+
   <FrameLayout
       android:id="@+id/nav_fragment_frame"
       android:layout_width="match_parent"
@@ -85,13 +85,57 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
+      <TextView
+          android:id="@+id/simulation_status"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="@dimen/text_margin"
+          android:layout_marginTop="20dp"
+          android:layout_marginBottom="10dp"
+          android:fontFamily="@font/roboto_bold"
+          android:text="@string/status_idle"
+          android:textColor="@color/primaryColor"
+          android:textSize="18sp"
+          app:layout_constraintStart_toStartOf="parent"
+          app:layout_constraintTop_toTopOf="parent"
+          app:layout_constraintBottom_toTopOf="@+id/trip_id_label" />
+
+
+      <TextView
+          android:id="@+id/trip_id_label"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="@dimen/text_margin"
+          android:layout_marginBottom="10dp"
+          android:fontFamily="@font/roboto"
+          android:text="@string/trip_id_label"
+          android:textColor="@color/cardInfoText"
+          android:textSize="14sp"
+          app:layout_constraintStart_toStartOf="parent"
+          app:layout_constraintBottom_toTopOf="@+id/next_trip_id_label" />
+
+
+      <TextView
+          android:visibility="gone"
+          android:id="@+id/next_trip_id_label"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="@dimen/text_margin"
+          android:layout_marginBottom="10dp"
+          android:fontFamily="@font/roboto"
+          android:text="@string/next_trip_id_label"
+          android:textColor="@color/cardInfoText"
+          android:textSize="14sp"
+          app:layout_constraintStart_toStartOf="parent"
+          app:layout_constraintBottom_toTopOf="@+id/action_button"/>
+
       <Button
           android:id="@+id/action_button"
           android:layout_width="0dp"
           android:layout_height="48dp"
-          android:layout_marginBottom="18dp"
           android:layout_marginStart="@dimen/text_margin"
           android:layout_marginEnd="@dimen/text_margin"
+          android:layout_marginBottom="18dp"
           android:background="@drawable/rounded_button"
           android:fontFamily="@font/roboto_medium"
           android:text="@string/status_unknown"
@@ -100,46 +144,7 @@
           android:textSize="18sp"
           app:layout_constraintBottom_toBottomOf="parent"
           app:layout_constraintEnd_toEndOf="parent"
-          app:layout_constraintStart_toStartOf="parent"
-          app:layout_constraintTop_toBottomOf="@+id/vehicle_id" />
-      <TextView
-          android:id="@+id/trip_id_label"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:layout_marginTop="10dp"
-          android:layout_marginBottom="14dp"
-          android:layout_marginStart="@dimen/text_margin"
-          android:fontFamily="@font/roboto"
-          android:text="@string/trip_id_label"
-          android:textColor="@color/cardInfoText"
-          android:textSize="14sp"
-          app:layout_constraintBottom_toTopOf="@id/action_button"
-          app:layout_constraintStart_toStartOf="parent"
-          app:layout_constraintTop_toBottomOf="@+id/simulation_status" />
-      <TextView
-          android:id="@+id/trip_match"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:layout_marginTop="10dp"
-          android:layout_marginStart="4dp"
-          android:fontFamily="@font/roboto"
-          android:text="@string/status_unknown"
-          android:textColor="@color/cardInfoText"
-          android:textSize="14sp"
-          app:layout_constraintStart_toEndOf="@+id/trip_id_label"
-          app:layout_constraintTop_toBottomOf="@+id/simulation_status" />
-      <TextView
-          android:id="@+id/simulation_status"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:layout_marginTop="24dp"
-          android:layout_marginStart="@dimen/text_margin"
-          android:fontFamily="@font/roboto_bold"
-          android:text="@string/status_idle"
-          android:textColor="@color/primaryColor"
-          android:textSize="18sp"
-          app:layout_constraintStart_toStartOf="parent"
-          app:layout_constraintTop_toTopOf="parent" />
+          app:layout_constraintStart_toStartOf="parent" />
     </androidx.constraintlayout.widget.ConstraintLayout>
   </androidx.cardview.widget.CardView>
   <View

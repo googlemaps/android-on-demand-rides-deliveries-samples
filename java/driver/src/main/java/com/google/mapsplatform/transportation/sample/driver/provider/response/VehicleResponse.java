@@ -15,6 +15,7 @@
 package com.google.mapsplatform.transportation.sample.driver.provider.response;
 
 import com.google.gson.annotations.SerializedName;
+import java.util.List;
 
 /** Non-extensive POJO representation of a Vehicle response object. */
 public class VehicleResponse {
@@ -24,6 +25,9 @@ public class VehicleResponse {
 
   @SerializedName("vehicleState")
   private String vehicleState;
+
+  @SerializedName("currentTripsIds")
+  private List<String> currentTripsIds;
 
   public String getName() {
     return name;
@@ -39,5 +43,13 @@ public class VehicleResponse {
 
   public void setVehicleState(String vehicleState) {
     this.vehicleState = vehicleState;
+  }
+
+  public List<String> getCurrentTripsIds() {
+    return currentTripsIds;
+  }
+
+  public void setCurrentTripsIds(List<String> currentTripsIds) {
+    this.currentTripsIds = currentTripsIds;
   }
 }

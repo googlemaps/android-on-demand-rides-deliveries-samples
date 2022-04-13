@@ -12,15 +12,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.mapsplatform.transportation.sample;
+package com.google.mapsplatform.transportation.sample.consumer;
 
-import static com.google.mapsplatform.transportation.sample.ConsumerMarkerType.DROPOFF_POINT;
-import static com.google.mapsplatform.transportation.sample.ConsumerMarkerType.PICKUP_POINT;
+import static com.google.mapsplatform.transportation.sample.consumer.ConsumerMarkerType.DROPOFF_POINT;
+import static com.google.mapsplatform.transportation.sample.consumer.ConsumerMarkerType.INTERMEDIATE_DESTINATION_POINT;
+import static com.google.mapsplatform.transportation.sample.consumer.ConsumerMarkerType.PICKUP_POINT;
+import static com.google.mapsplatform.transportation.sample.consumer.ConsumerMarkerType.PREVIOUS_TRIP_PENDING_POINT;
 
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
+import androidx.annotation.DrawableRes;
 import androidx.appcompat.content.res.AppCompatResources;
 import com.google.android.gms.maps.model.BitmapDescriptor;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
@@ -50,6 +53,14 @@ public final class ConsumerMarkerUtils {
         return new MarkerOptions()
             .anchor(ANCHOR_VALUE, ANCHOR_VALUE)
             .icon(toBitmapDescriptor(context, R.drawable.ic_custom_dropoff));
+      case INTERMEDIATE_DESTINATION_POINT:
+        return new MarkerOptions()
+            .anchor(ANCHOR_VALUE, ANCHOR_VALUE)
+            .icon(toBitmapDescriptor(context, R.drawable.ic_intermediate_waypoint));
+      case PREVIOUS_TRIP_PENDING_POINT:
+        return new MarkerOptions()
+            .anchor(ANCHOR_VALUE, ANCHOR_VALUE)
+            .icon(toBitmapDescriptor(context, R.drawable.ic_intermediate_destination));
       default:
         throw new IllegalArgumentException(
             String.format("Marker type: %d not supported", consumerMarkerType));
@@ -57,8 +68,8 @@ public final class ConsumerMarkerUtils {
   }
 
   /** Convert a vector drawable to a bitmap descriptor. */
-  public static BitmapDescriptor toBitmapDescriptor(Context context, int resId) {
-    Drawable vectorDrawable = AppCompatResources.getDrawable(context, resId);
+  public static BitmapDescriptor toBitmapDescriptor(Context context, @DrawableRes int resourceId) {
+    Drawable vectorDrawable = AppCompatResources.getDrawable(context, resourceId);
     Bitmap bitmap =
         Bitmap.createBitmap(
             vectorDrawable.getIntrinsicWidth(),
@@ -73,12 +84,19 @@ public final class ConsumerMarkerUtils {
   /** Customize the pickup and drop-off markers. */
   public static void setCustomMarkers(ConsumerController mConsumerController, Context context) {
     ConsumerMapStyle mapStyle = mConsumerController.getConsumerMapStyle();
+
     MarkerOptions pickupMarkerStyleOptions =
         new MarkerOptions().icon(toBitmapDescriptor(context, R.drawable.ic_custommarker_pickup));
     mapStyle.setMarkerStyleOptions(MarkerType.TRIP_PICKUP_POINT, pickupMarkerStyleOptions);
+
     MarkerOptions dropoffMarkerStyleOptions =
         new MarkerOptions()
             .icon(toBitmapDescriptor(context, R.drawable.ic_custommarker_destination));
     mapStyle.setMarkerStyleOptions(MarkerType.TRIP_DROPOFF_POINT, dropoffMarkerStyleOptions);
+
+    MarkerOptions intermediateMarkerStyleOptions =
+        new MarkerOptions().icon(toBitmapDescriptor(context, R.drawable.ic_intermediate_waypoint));
+    mapStyle.setMarkerStyleOptions(
+        MarkerType.TRIP_INTERMEDIATE_DESTINATION, intermediateMarkerStyleOptions);
   }
 }

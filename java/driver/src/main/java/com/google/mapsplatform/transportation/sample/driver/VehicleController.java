@@ -40,6 +40,8 @@ import com.google.mapsplatform.transportation.sample.driver.config.DriverTripCon
 import com.google.mapsplatform.transportation.sample.driver.provider.ProviderUtils;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.VehicleResponse;
 import com.google.mapsplatform.transportation.sample.driver.provider.service.LocalProviderService;
+import com.google.mapsplatform.transportation.sample.driver.provider.service.VehicleStateService;
+import com.google.mapsplatform.transportation.sample.driver.state.TripState;
 import com.google.mapsplatform.transportation.sample.driver.state.TripStatus;
 import java.lang.ref.WeakReference;
 import java.util.concurrent.Executor;
@@ -52,7 +54,7 @@ import javax.annotation.Nullable;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Controls vehicle related functionalities. */
-public class VehicleController {
+public class VehicleController implements VehicleStateService.VehicleStateListener {
 
   // Controls the relative speed of the simulator.
   private static final float SIMULATOR_SPEED_MULTIPLIER = 5.0f;
@@ -63,6 +65,8 @@ public class VehicleController {
   // Pattern of a FleetEngine full qualified a vehicle name.
   private static final Pattern VEHICLE_NAME_FORMAT =
       Pattern.compile("providers/(.*)/vehicles/(.*)");
+
+  public static final String NO_TRIP_ID = "";
 
   // Index of the vehicle ID on a group matcher.
   private static final int VEHICLE_ID_INDEX = 2;
@@ -88,11 +92,12 @@ public class VehicleController {
   private final VehicleSimulator vehicleSimulator;
   private final VehicleIdStore vehicleIdStore;
 
+  private VehicleStateService vehicleStateService;
+
   private WeakReference<Presenter> presenterRef = new WeakReference<>(null);
-  private TripStatus tripStatus = TripStatus.UNKNOWN_TRIP_STATUS;
+
   private @MonotonicNonNull RidesharingVehicleReporter vehicleReporter;
-  private @MonotonicNonNull ListenableFuture<VehicleResponse> registerVehicleFuture;
-  @Nullable private DriverTripConfig tripConfig;
+  private @Nullable TripState tripState;
 
   public VehicleController(
       Application application,
@@ -110,12 +115,34 @@ public class VehicleController {
         new LocalProviderService(
             LocalProviderService.createRestProvider(ProviderUtils.getProviderBaseUrl(application)),
             this.executor,
-            scheduledExecutor,
             roadSnappedLocationProvider);
 
     authTokenFactory = new TripAuthTokenFactory(application, executor, roadSnappedLocationProvider);
 
     vehicleIdStore = new VehicleIdStore(context);
+  }
+
+  @Override
+  public void onVehicleStateUpdate(VehicleResponse updatedVehicle) {
+    // No trip loaded but there's a paired trip.
+    if (tripState == null && updatedVehicle.getCurrentTripsIds().size() > 0) {
+      String tripId = updatedVehicle.getCurrentTripsIds().get(0);
+
+      fetchTrip(tripId);
+      return;
+    }
+
+    // There's an ongoing trip and a second trip has been matched (B2B).
+    if (tripState != null && updatedVehicle.getCurrentTripsIds().size() == 2) {
+      String backToBackTripId = updatedVehicle.getCurrentTripsIds().get(1);
+      tripState.setBackToBackTripId(backToBackTripId);
+
+      Presenter presenter = presenterRef.get();
+
+      if (presenter != null) {
+        mainExecutor.execute(() -> presenter.showNextTripId(backToBackTripId));
+      }
+    }
   }
 
   /**
@@ -131,7 +158,7 @@ public class VehicleController {
       RidesharingDriverApi.clearInstance();
     }
 
-    registerVehicleFuture = initVehicle();
+    ListenableFuture<VehicleResponse> registerVehicleFuture = initVehicle();
     ListenableFuture<Boolean> future =
         Futures.transform(
             registerVehicleFuture,
@@ -156,7 +183,8 @@ public class VehicleController {
         new FutureCallback<Boolean>() {
           @Override
           public void onSuccess(Boolean result) {
-            VehicleController.this.setVehicleOnline();
+            setVehicleOnline();
+            startVehiclePeriodicUpdate();
           }
 
           @Override
@@ -168,20 +196,22 @@ public class VehicleController {
     return future;
   }
 
-  /** Poll available trip to be paired. */
-  public void pollTrip() {
+  private void fetchTrip(String tripId) {
     ListenableFuture<DriverTripConfig> tripConfigFuture =
-        Futures.transformAsync(
-            registerVehicleFuture,
-            vehicleResponse ->
-                providerService.pollAvailableTrip(extractVehicleId(vehicleResponse.getName())),
-            executor);
+        providerService.fetchTrip(tripId, vehicleIdStore.readOrDefault());
+
     Futures.addCallback(
         tripConfigFuture,
         new FutureCallback<DriverTripConfig>() {
           @Override
           public void onSuccess(DriverTripConfig tripConfig) {
-            sequentialExecutor.execute(() -> VehicleController.this.tripConfig = tripConfig);
+            sequentialExecutor.execute(
+                () -> {
+                  tripState = new TripState(tripConfig);
+                  tripState.setTripMatchedState();
+                  updateServerAndUiTripState();
+                });
+
             Presenter presenter = presenterRef.get();
             if (presenter != null) {
               mainExecutor.execute(
@@ -190,13 +220,34 @@ public class VehicleController {
                     presenter.showTripStatus(TripStatus.NEW);
                   });
             }
-            updateTripStatus(TripStatus.NEW);
           }
 
           @Override
           public void onFailure(Throwable t) {}
         },
         executor);
+  }
+
+  /** Cleans up active resources prior to activity onDestroy, mainly to prevent memory leaks. */
+  public void cleanUp() {
+    stopVehiclePeriodicUpdate();
+  }
+
+  private void startVehiclePeriodicUpdate() {
+    if (vehicleStateService != null) {
+      vehicleStateService.stopAsync();
+    }
+
+    vehicleStateService =
+        new VehicleStateService(providerService, vehicleIdStore.readOrDefault(), this);
+
+    vehicleStateService.startAsync();
+  }
+
+  private void stopVehiclePeriodicUpdate() {
+    if (vehicleStateService != null) {
+      vehicleStateService.stopAsync();
+    }
   }
 
   /** Initialize a vehicle. */
@@ -227,26 +278,48 @@ public class VehicleController {
   }
 
   /** Updates {@link TripStatus} to the controller. */
-  public void updateTripStatus(TripStatus status) {
+  public void processNextState() {
     // Use Guava's SequentialExecutor to change the internal state because it is
     // accessed in multiple threads.
     sequentialExecutor.execute(
         () -> {
-          if (tripStatus == status) {
+          if (tripState == null) {
             return;
           }
-          if (tripConfig == null) {
-            tripStatus = TripStatus.UNKNOWN_TRIP_STATUS;
-            return;
-          }
-          tripStatus = status;
 
-          if (status != TripStatus.UNKNOWN_TRIP_STATUS) {
-            providerService.updateTripStatus(tripConfig.getTripId(), status.toString());
-          }
-
-          updateVehicleByTripStatus(status);
+          tripState.processNextState();
+          updateServerAndUiTripState();
         });
+  }
+
+  /**
+   * Takes current trip 'Status' and updates it in the server. Depending on the status, it might
+   * also update 'intermediateDestinationIndex' (multi-destination support). Then, it updates the UI
+   * (via the Presenter) to reflect the update.
+   */
+  private void updateServerAndUiTripState() {
+    TripStatus updatedStatus =
+        tripState != null ? tripState.getStatus() : TripStatus.UNKNOWN_TRIP_STATUS;
+
+    if (updatedStatus != TripStatus.UNKNOWN_TRIP_STATUS) {
+      if (updatedStatus == TripStatus.ENROUTE_TO_INTERMEDIATE_DESTINATION) {
+        providerService.updateTripStatusWithIntermediateDestinationIndex(
+            tripState.getTripId(), updatedStatus.toString(), tripState.getWaypointIndex() - 1);
+      } else {
+        providerService.updateTripStatus(tripState.getTripId(), updatedStatus.toString());
+      }
+    }
+
+    mainExecutor.execute(
+        () -> {
+          Presenter presenter = presenterRef.get();
+          if (presenter == null) {
+            return;
+          }
+          presenter.showTripStatus(updatedStatus);
+        });
+
+    updateVehicleByTripStatus(updatedStatus);
   }
 
   /** Sets presenter to the controller so it can invokes UI related callbacks. */
@@ -254,29 +327,36 @@ public class VehicleController {
     presenterRef = new WeakReference<>(presenter);
   }
 
-  public TripStatus getTripStatus() {
-    return tripStatus;
-  }
-
+  /**
+   * Updates Vehicle state (navigator waypoint, simulator, journey sharing) based on the given trip
+   * status.
+   */
   private void updateVehicleByTripStatus(TripStatus status) {
-    DriverTripConfig driverTripConfig = requireNonNull(tripConfig);
+    TripState currentTripState = requireNonNull(tripState);
+
     switch (status) {
       case UNKNOWN_TRIP_STATUS:
         vehicleSimulator.pause();
         break;
+
       case NEW:
-        setNextWaypoint(PICKUP_WAYPOINT, false);
-        vehicleSimulator.setLocation(driverTripConfig.getVehicleLocation());
+        setNextWaypointOnNavigator();
+        vehicleSimulator.setLocation(currentTripState.getInitialVehicleLocation());
         break;
+
       case ENROUTE_TO_PICKUP:
       case ENROUTE_TO_DROPOFF:
+      case ENROUTE_TO_INTERMEDIATE_DESTINATION:
         startJourneySharing();
         vehicleSimulator.start(SIMULATOR_SPEED_MULTIPLIER);
         break;
+
       case ARRIVED_AT_PICKUP:
+      case ARRIVED_AT_INTERMEDIATE_DESTINATION:
         stopJourneySharing();
-        setNextWaypoint(DROP_OFF_WAYPOINT, true);
+        setNextWaypointOnNavigator();
         break;
+
       case COMPLETE:
       case CANCELED:
         stopJourneySharing();
@@ -301,41 +381,88 @@ public class VehicleController {
     navigator.clearDestinations();
   }
 
+  /**
+   * Given the current waypoint, it determines what the next one will be and sets the navigator
+   * destination to it.
+   */
   @SuppressWarnings("FutureReturnValueIgnored")
-  private void setNextWaypoint(String waypointType, boolean isDropoff) {
-    DriverTripConfig driverTripConfig = requireNonNull(tripConfig);
-    DriverTripConfig.Waypoint waypoint = driverTripConfig.getWaypoint(waypointType);
+  private void setNextWaypointOnNavigator() {
+    TripState currentTripState = requireNonNull(tripState);
+
+    int waypointIndex = currentTripState.getWaypointIndex();
+
+    DriverTripConfig.Waypoint waypoint = tripState.getWaypoints()[waypointIndex + 1];
+
     if (waypoint == null) {
       return;
     }
+
     Waypoint destinationWaypoint =
         Waypoint.builder()
             .setLatLng(
                 waypoint.getLocation().getPoint().getLatitude(),
                 waypoint.getLocation().getPoint().getLongitude())
-            .setTitle(driverTripConfig.getProjectId() + waypointType)
+            .setTitle(waypoint.getWaypointType())
             .build();
 
-    if (isDropoff) {
-      navigator.setDestinations(
-          Lists.newArrayList(destinationWaypoint), driverTripConfig.getRouteToken());
-      return;
-    }
-    navigator.setDestination(destinationWaypoint);
+    navigator.setDestinations(Lists.newArrayList(destinationWaypoint), tripState.getRouteToken());
   }
 
-  @SuppressWarnings("FutureReturnValueIgnored")
-  private void onTripFinishedOrCancelled() {
+  // Returns true if current trip has intermediate destinations (multi-destination support).
+  public boolean hasIntermediateDestinations() {
+    return requireNonNull(tripState).hasIntermediateDestinations();
+  }
+
+  // Returns true if driver is on the last intermediate destination (and hence, dropoff is next).
+  public boolean isOnLastIntermediateDestination() {
+    return requireNonNull(tripState).isOnLastIntermediateDestination();
+  }
+
+  private void onTripFinishedWithBackToBack() {
+    // Trip has already been reset.
+    if (tripState == null) {
+      return;
+    }
+
+    String backToBackTripId = tripState.getBackToBackTripId();
+    showTripIds(backToBackTripId, NO_TRIP_ID);
+
+    tripState = null;
+
+    fetchTrip(backToBackTripId);
+  }
+
+  private void showTripIds(String currentTripId, String nextTripId) {
     Presenter presenter = presenterRef.get();
     if (presenter == null) {
       return;
     }
-    mainExecutor.execute(() -> presenter.showTripId("No trip assigned"));
+
+    mainExecutor.execute(
+        () -> {
+          presenter.showTripId(currentTripId);
+          presenter.showNextTripId(nextTripId);
+        });
+  }
+
+  @SuppressWarnings("FutureReturnValueIgnored")
+  private void onTripFinishedOrCancelled() {
+    // Trip has already been reset.
+    if (tripState == null) {
+      return;
+    }
+
+    if (!tripState.getBackToBackTripId().isEmpty()) {
+      onTripFinishedWithBackToBack();
+      return;
+    }
+
+    showTripIds("No trip assigned", NO_TRIP_ID);
 
     scheduledExecutor.schedule(
         () -> {
-          updateTripStatus(TripStatus.UNKNOWN_TRIP_STATUS);
-          pollTrip();
+          tripState = null;
+          updateServerAndUiTripState();
         },
         ON_TRIP_FINISHED_DELAY_SECONDS,
         SECONDS);

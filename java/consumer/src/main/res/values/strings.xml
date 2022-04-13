@@ -39,8 +39,14 @@
   <string name="state_enroute_to_pickup" translatable="false">Driver is arriving at pickup</string>
   <!-- Driver arrived at pickup state [CHAR_LIMIT=50] -->
   <string name="state_arrived_at_pickup" translatable="false">Driver arrived at pickup</string>
+  <!-- Driver is completing another trip [CHAR_LIMIT=50] -->
+  <string name="state_completing_another_trip" translatable="false">Your driver is completing another trip</string>
   <!-- Enroute to dropoff state [CHAR_LIMIT=50] -->
-  <string name="state_enroute_to_dropoff" translatable="false">Driving to dropoff</string>
+  <string name="state_enroute_to_dropoff" translatable="false">Driving to drop-off</string>
+  <!-- Enroute to intermediate destination state [CHAR_LIMIT=50] -->
+  <string name="state_enroute_to_intermediate_destination" translatable="false">Driving to stop</string>
+  <!-- Drived arrived to intermediate destination [CHAR_LIMIT=50] -->
+  <string name="state_arrived_at_intermediate_destination" translatable="false">Driver arrived at stop</string>
   <!-- Trip completed state [CHAR_LIMIT=50] -->
   <string name="state_end_of_trip" translatable="false">End of trip</string>
   <!-- End state titles. -->
@@ -53,9 +59,10 @@
 
   <!--Initial Button Label -->
   <string name="request_button_label" translatable="false">Request Trip</string>
-  <string name="dropoff_label" translatable="false">Confirm Dropoff</string>
+  <string name="dropoff_label" translatable="false">Confirm Drop-off</string>
   <string name="pickup_label" translatable="false">Confirm Pickup</string>
-
+   <string name="confirm_trip_label" translatable="false">Confirm Trip</string>
+  <string name="add_stop_label" translatable="false">Add Stop</string>
   <!-- String for formatting eta [CHAR_LIMIT=40] -->
   <plurals name="eta_format_string" translatable="false">
     <item quantity="one">%d min</item>

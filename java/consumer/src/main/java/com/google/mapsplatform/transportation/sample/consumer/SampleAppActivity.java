@@ -12,19 +12,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.mapsplatform.transportation.sample;
+package com.google.mapsplatform.transportation.sample.consumer;
 
-import static com.google.mapsplatform.transportation.sample.state.AppStates.INITIALIZED;
-import static com.google.mapsplatform.transportation.sample.state.AppStates.JOURNEY_SHARING;
-import static com.google.mapsplatform.transportation.sample.state.AppStates.SELECTING_DROPOFF;
-import static com.google.mapsplatform.transportation.sample.state.AppStates.SELECTING_PICKUP;
-import static com.google.mapsplatform.transportation.sample.state.AppStates.UNINITIALIZED;
+import static com.google.mapsplatform.transportation.sample.consumer.state.AppStates.CONFIRMING_TRIP;
+import static com.google.mapsplatform.transportation.sample.consumer.state.AppStates.INITIALIZED;
+import static com.google.mapsplatform.transportation.sample.consumer.state.AppStates.JOURNEY_SHARING;
+import static com.google.mapsplatform.transportation.sample.consumer.state.AppStates.SELECTING_DROPOFF;
+import static com.google.mapsplatform.transportation.sample.consumer.state.AppStates.SELECTING_PICKUP;
+import static com.google.mapsplatform.transportation.sample.consumer.state.AppStates.UNINITIALIZED;
 import static java.util.Objects.requireNonNull;
 
-import android.Manifest.permission;
 import android.annotation.SuppressLint;
-import android.app.AlertDialog;
-import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.os.Bundle;
@@ -35,7 +34,6 @@ import android.widget.TextView;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.lifecycle.ViewModelProviders;
@@ -44,7 +42,10 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.Task;
 import com.google.android.libraries.mapsplatform.transportation.consumer.ConsumerApi;
 import com.google.android.libraries.mapsplatform.transportation.consumer.managers.TripModel;
@@ -52,17 +53,20 @@ import com.google.android.libraries.mapsplatform.transportation.consumer.manager
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TerminalLocation;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.Trip.TripStatus;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripInfo;
+import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripWaypoint;
 import com.google.android.libraries.mapsplatform.transportation.consumer.sessions.JourneySharingSession;
 import com.google.android.libraries.mapsplatform.transportation.consumer.view.ConsumerController;
 import com.google.android.libraries.mapsplatform.transportation.consumer.view.ConsumerGoogleMap;
 import com.google.android.libraries.mapsplatform.transportation.consumer.view.ConsumerGoogleMap.ConsumerMapReadyCallback;
 import com.google.android.libraries.mapsplatform.transportation.consumer.view.ConsumerMapView;
 import com.google.android.material.snackbar.Snackbar;
-import com.google.mapsplatform.transportation.sample.provider.ProviderUtils;
-import com.google.mapsplatform.transportation.sample.provider.model.TripData;
+import com.google.common.collect.ImmutableList;
+import com.google.mapsplatform.transportation.sample.consumer.provider.ProviderUtils;
+import com.google.mapsplatform.transportation.sample.consumer.provider.model.TripData;
+import com.google.mapsplatform.transportation.sample.consumer.state.AppStates;
+import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Main activity for the sample application. */
@@ -78,6 +82,11 @@ public class SampleAppActivity extends AppCompatActivity
   /** Default Map location if failed to receive FLP location. Defaulted to Google MTV. */
   private static final LatLng DEFAULT_MAP_LOCATION = new LatLng(37.423061, -122.084051);
 
+  // Default padding used when moving the camera within the bounds of the trip preview polyline.
+  private static final int TRIP_PREVIEW_CAMERA_PADDING = 48;
+  // Default color used for the trip preview polyline.
+  private static final int TRIP_PREVIEW_POLYLINE_COLOR = Color.rgb(69, 151, 255);
+
   // The current journey sharing trip status.
   private TextView tripStatusView;
   // Displays the users trip id.
@@ -90,9 +99,11 @@ public class SampleAppActivity extends AppCompatActivity
   private TextView remainingDistanceView;
   // The ridesharing map.
   private ConsumerMapView consumerMapView;
-  // Multipurpose button depending on the app state (could be for selecting, dropoff, pickup, or
+  // Multipurpose button depending on the app state (could be for selecting, drop-off, pickup, or
   // requesting trip)
   private Button actionButton;
+  // Button that adds a stop in between pickup/drop-off. Only visible when selecting drop-off.
+  private Button addStopButton;
   // Dropoff pin in the center of the map.
   private View dropoffPin;
   // Pickup pin in the center of the map.
@@ -101,11 +112,19 @@ public class SampleAppActivity extends AppCompatActivity
   @MonotonicNonNull private ConsumerGoogleMap googleMap;
   // The last location of the device.
   @Nullable private LatLng lastLocation;
-  // Map of markers on google map to indicate pickup and dropoff.
-  private final Map<Integer, Marker> mapMarkers = new HashMap<>();
+  // Marker representing the pickup location.
+  private Marker pickupMarker = null;
+  // Marker representing the dropoff location.
+  private Marker dropoffMarker = null;
+  // Array of markers representing intermediate stops during trip preview.
+  private final ArrayList<Marker> intermediateStopsMarkers = new ArrayList<Marker>();
+  // Array of markers representing stops that driver has to make before starting the current trip.
+  private final ArrayList<Marker> previousTripStopsMarkers = new ArrayList<Marker>();
 
   // ViewModel for the consumer sample app.
   private ConsumerViewModel consumerViewModel;
+
+  private Polyline tripPreviewPolyline = null;
 
   @MonotonicNonNull private TripModelManager tripModelManager;
   @MonotonicNonNull private ConsumerController consumerController;
@@ -123,15 +142,7 @@ public class SampleAppActivity extends AppCompatActivity
     consumerViewModel = ViewModelProviders.of(this).get(ConsumerViewModel.class);
     consumerViewModel.setJourneySharingListener(this);
 
-    // If the permission is granted, then continue to initialize. Otherwise wait until
-    // the permission is granted in onRequestPermissionResult().
-    if (hasRequiredPermissions()) {
-      initializeSdk();
-    } else {
-      // Permissions are granted, initialize the application.
-      ActivityCompat.requestPermissions(
-          this, new String[] {permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION_PERMISSION_CODE);
-    }
+    initializeSdk();
 
     Log.i(TAG, "Consumer SDK version: " + ConsumerApi.getConsumerSDKVersion());
   }
@@ -163,7 +174,7 @@ public class SampleAppActivity extends AppCompatActivity
             ConsumerMarkerUtils.setCustomMarkers(consumerController, SampleAppActivity.this);
             setupViewBindings();
             googleMap = consumerGoogleMap;
-            centerCamera();
+            centerCameraToLastLocation();
             setupMapListener();
           }
         },
@@ -189,7 +200,7 @@ public class SampleAppActivity extends AppCompatActivity
   }
 
   /** Center the camera to the last location of the device. */
-  private void centerCamera() {
+  private void centerCameraToLastLocation() {
     if (lastLocation != null) {
       requireNonNull(googleMap)
           .moveCamera(CameraUpdateFactory.newLatLngZoom(lastLocation, DEFAULT_ZOOM));
@@ -201,6 +212,7 @@ public class SampleAppActivity extends AppCompatActivity
     lastLocation = latLang;
   }
 
+  // Permissions are managed by the 'SplashScreenActivity'
   @SuppressLint("MissingPermission")
   private void showStartupLocation() {
     FusedLocationProviderClient fusedLocationProviderClient =
@@ -216,7 +228,7 @@ public class SampleAppActivity extends AppCompatActivity
                 lastLocation = DEFAULT_MAP_LOCATION;
               }
               if (googleMap != null) {
-                centerCamera();
+                centerCameraToLastLocation();
               }
             });
   }
@@ -230,35 +242,49 @@ public class SampleAppActivity extends AppCompatActivity
               if (cameraPosition == null) {
                 return;
               }
-              int state = consumerViewModel.getAppState().getValue();
-              LatLng cameraLocation = cameraPosition.target;
-              if (state == SELECTING_DROPOFF) {
-                consumerViewModel.setDropoffLocation(cameraLocation);
-                updateMarker(
-                    ConsumerMarkerType.DROPOFF_POINT,
-                    TerminalLocation.builder(cameraLocation).build());
-              } else if (state == SELECTING_PICKUP) {
-                consumerViewModel.setPickupLocation(cameraLocation);
-                updateMarker(
-                    ConsumerMarkerType.PICKUP_POINT,
-                    TerminalLocation.builder(cameraLocation).build());
+
+              @AppStates int state = consumerViewModel.getAppState().getValue();
+              if (state != AppStates.SELECTING_DROPOFF && state != AppStates.SELECTING_PICKUP) {
+                return;
               }
+
+              LatLng cameraLocation = cameraPosition.target;
+              TerminalLocation terminalLocation = TerminalLocation.create(cameraLocation);
+
+              consumerViewModel.updateLocationPointForState(cameraLocation);
+              updateMarkerBasedOnState(terminalLocation);
             });
   }
 
-  /** Update marker on the map based on camera location. */
-  private void updateMarker(@ConsumerMarkerType Integer markerType, TerminalLocation location) {
-    Marker marker = mapMarkers.get(markerType);
-    if (marker == null) {
-      marker =
-          requireNonNull(googleMap)
-              .addMarker(
-                  ConsumerMarkerUtils.getConsumerMarkerOptions(this, markerType)
-                      .position(location.getLatLng()));
-      mapMarkers.put(markerType, marker);
-    } else {
-      // adjust position of existing marker
-      marker.setPosition(location.getLatLng());
+  /**
+   * Updates the current marker (depending on app state) to the given location. Ex: when app state
+   * is 'SELECTING_PICKUP', it updates the pickupMarker object.
+   */
+  private void updateMarkerBasedOnState(TerminalLocation location) {
+    @AppStates int state = consumerViewModel.getAppState().getValue();
+
+    if (state == SELECTING_PICKUP) {
+      if (pickupMarker == null) {
+        pickupMarker =
+            requireNonNull(googleMap)
+                .addMarker(
+                    ConsumerMarkerUtils.getConsumerMarkerOptions(
+                            this, ConsumerMarkerType.PICKUP_POINT)
+                        .position(location.getLatLng()));
+      }
+
+      pickupMarker.setPosition(location.getLatLng());
+    } else if (state == SELECTING_DROPOFF) {
+      if (dropoffMarker == null) {
+        dropoffMarker =
+            requireNonNull(googleMap)
+                .addMarker(
+                    ConsumerMarkerUtils.getConsumerMarkerOptions(
+                            this, ConsumerMarkerType.DROPOFF_POINT)
+                        .position(location.getLatLng()));
+      }
+
+      dropoffMarker.setPosition(location.getLatLng());
     }
   }
 
@@ -266,27 +292,52 @@ public class SampleAppActivity extends AppCompatActivity
    * When first selecting pickup, the idle handler on map is not initiated since the map was already
    * idle when selecting initial pickup. Select the current location as pickup initially.
    */
-  private void maybeSelectInitialPickup() {
+  private void resetPickupMarkerAndLocation() {
     if (googleMap.getCameraPosition() == null) {
       return;
     }
+
+    LatLng cameraLocation = googleMap.getCameraPosition().target;
+    consumerViewModel.setPickupLocation(cameraLocation);
+
+    updateMarkerBasedOnState(TerminalLocation.builder(cameraLocation).build());
+  }
+
+  /**
+   * When first selecting pickup, the idle handler on map is not initiated since the map was already
+   * idle when selecting initial pickup. Select the current location as pickup initially.
+   */
+  private void resetDropoffMarkerAndLocation() {
+    if (googleMap.getCameraPosition() == null) {
+      return;
+    }
+
     LatLng cameraLocation = googleMap.getCameraPosition().target;
     consumerViewModel.setDropoffLocation(cameraLocation);
-    updateMarker(ConsumerMarkerType.PICKUP_POINT, TerminalLocation.builder(cameraLocation).build());
+
+    updateMarkerBasedOnState(TerminalLocation.create(cameraLocation));
   }
 
   /** Display the trip status based on the observed trip status. */
   private void displayTripStatus(int status) {
     switch (status) {
       case TripStatus.NEW:
-        if (consumerViewModel.isTripMatched()) {
-          setTripStatusTitle(R.string.state_enroute_to_pickup);
+        if (consumerViewModel.isTripMatched()
+            && consumerViewModel.getTripInfo().getValue().getNextWaypoint() != null) {
+          int titleId =
+              // Dropping someone else as part of a B2B trip.
+              consumerViewModel.isDriverCompletingAnotherTrip()
+                  ? R.string.state_completing_another_trip
+                  : R.string.state_enroute_to_pickup;
+
+          setTripStatusTitle(titleId);
         } else {
           setTripStatusTitle(R.string.state_new);
         }
         actionButton.setVisibility(View.INVISIBLE);
         break;
       case TripStatus.ENROUTE_TO_PICKUP:
+        removeAllMarkers();
         setTripStatusTitle(R.string.state_enroute_to_pickup);
         break;
       case TripStatus.ARRIVED_AT_PICKUP:
@@ -295,14 +346,48 @@ public class SampleAppActivity extends AppCompatActivity
       case TripStatus.ENROUTE_TO_DROPOFF:
         setTripStatusTitle(R.string.state_enroute_to_dropoff);
         break;
+      case TripStatus.ARRIVED_AT_INTERMEDIATE_DESTINATION:
+        setTripStatusTitle(R.string.state_arrived_at_intermediate_destination);
+        break;
+      case TripStatus.ENROUTE_TO_INTERMEDIATE_DESTINATION:
+        setTripStatusTitle(R.string.state_enroute_to_intermediate_destination);
+        break;
       case TripStatus.COMPLETE:
       case TripStatus.CANCELED:
         setTripStatusTitle(R.string.state_end_of_trip);
         hideTripData();
+        removeAllMarkers();
         break;
       default:
         break;
     }
+  }
+
+  /**
+   * This draws markers that need to be displayed *only* during 'JourneySharing`. Example: Waypoints
+   * belonging to a previous trip are not displayed by ConsumerSDK, so we manually render them.
+   */
+  private void drawJourneySharingStateMarkers(ImmutableList<TripWaypoint> previousTripWaypoints) {
+    Marker addedMarker;
+
+    for (TripWaypoint waypoint : previousTripWaypoints) {
+      addedMarker =
+          googleMap.addMarker(
+              ConsumerMarkerUtils.getConsumerMarkerOptions(
+                      this, ConsumerMarkerType.PREVIOUS_TRIP_PENDING_POINT)
+                  .position(waypoint.getTerminalLocation().getLatLng()));
+
+      previousTripStopsMarkers.add(addedMarker);
+    }
+  }
+
+  /** Clears the list of markers drawn in drawJourneySharingStateMarkers. */
+  private void clearJourneySharingStateMarkers() {
+    for (Marker marker : previousTripStopsMarkers) {
+      marker.remove();
+    }
+
+    previousTripStopsMarkers.clear();
   }
 
   /** Display the reported map state and show trip data when in journey sharing state. */
@@ -310,37 +395,88 @@ public class SampleAppActivity extends AppCompatActivity
     switch (state) {
       case SELECTING_PICKUP:
         setTripStatusTitle(R.string.state_select_pickup);
-        centerCamera();
+        centerCameraToLastLocation();
         pickupPin.setVisibility(View.VISIBLE);
+        resetPickupMarkerAndLocation();
         break;
+
       case SELECTING_DROPOFF:
         setTripStatusTitle(R.string.state_select_dropoff);
         pickupPin.setVisibility(View.INVISIBLE);
         dropoffPin.setVisibility(View.VISIBLE);
-        maybeSelectInitialPickup();
+        addStopButton.setVisibility(View.VISIBLE);
         break;
-      case JOURNEY_SHARING:
+
+      case CONFIRMING_TRIP:
         dropoffPin.setVisibility(View.INVISIBLE);
+        tripStatusView.setVisibility(View.INVISIBLE);
+        addStopButton.setVisibility(View.GONE);
+        break;
+
+      case JOURNEY_SHARING:
+        clearTripPreviewPolyline();
         setTripStatusTitle(R.string.state_enroute_to_pickup);
         break;
+
       case INITIALIZED:
         tripStatusView.setVisibility(View.INVISIBLE);
         resetActionButton();
         removeAllMarkers();
         hideTripData();
         break;
+
       default:
         hideTripData();
         break;
     }
   }
 
-  /** Remove markers on the map. */
-  private void removeAllMarkers() {
-    for (Map.Entry<Integer, Marker> entry : mapMarkers.entrySet()) {
-      entry.getValue().remove();
+  /**
+   * Callback method fired with the 'Add stop' button (+) has been pressed/touched. It grabs the
+   * location of the 'DropoffLocation' container, removes the current 'dropoffMarker' and replaces
+   * it with a 'intermediateDestianationMarker'.
+   */
+  private void onAddStopButtonTapped(View view) {
+    requireNonNull(googleMap);
+
+    if (dropoffMarker == null) {
+      return;
     }
-    mapMarkers.clear();
+
+    consumerViewModel.addIntermediateDestination();
+
+    // Create an intermediate destination in place of the dropoffMarker.
+    Marker intermediateStopMarker =
+        googleMap.addMarker(
+            ConsumerMarkerUtils.getConsumerMarkerOptions(
+                    this, ConsumerMarkerType.INTERMEDIATE_DESTINATION_POINT)
+                .position(dropoffMarker.getPosition()));
+
+    intermediateStopsMarkers.add(intermediateStopMarker);
+
+    dropoffMarker.remove();
+    dropoffMarker = null;
+
+    resetDropoffMarkerAndLocation();
+  }
+
+  /** Remove markers on the map used for preview. (pickup, dropoff, intermediate destinations) . */
+  private void removeAllMarkers() {
+    if (dropoffMarker != null) {
+      dropoffMarker.remove();
+      dropoffMarker = null;
+    }
+
+    if (pickupMarker != null) {
+      pickupMarker.remove();
+      pickupMarker = null;
+    }
+
+    for (Marker marker : intermediateStopsMarkers) {
+      marker.remove();
+    }
+
+    intermediateStopsMarkers.clear();
   }
 
   /** Set button to be initial state. */
@@ -359,8 +495,8 @@ public class SampleAppActivity extends AppCompatActivity
   }
 
   /** Sets the UI state based on the trip state. */
-  private void setTripStatusTitle(int resId) {
-    tripStatusView.setText(resId);
+  private void setTripStatusTitle(@StringRes int resourceId) {
+    tripStatusView.setText(resourceId);
     tripStatusView.setVisibility(View.VISIBLE);
   }
 
@@ -381,6 +517,7 @@ public class SampleAppActivity extends AppCompatActivity
     }
     vehicleIdView.setText(
         getResources().getString(R.string.vehicle_id_label, tripInfo.getVehicleId()));
+
     displayTripStatus(tripInfo.getTripStatus());
 
     int visibility =
@@ -395,7 +532,7 @@ public class SampleAppActivity extends AppCompatActivity
     int currentState = consumerViewModel.getAppState().getValue();
     switch (currentState) {
       case INITIALIZED:
-        centerCamera();
+        centerCameraToLastLocation();
         // fall through
       case UNINITIALIZED:
         actionButton.setText(R.string.pickup_label);
@@ -406,9 +543,14 @@ public class SampleAppActivity extends AppCompatActivity
         consumerViewModel.setState(SELECTING_DROPOFF);
         break;
       case SELECTING_DROPOFF:
+        actionButton.setText(R.string.confirm_trip_label);
+        consumerViewModel.setState(CONFIRMING_TRIP);
+        drawTripPreviewPolyline();
+        centerCameraForTripPreview();
+        break;
+      case CONFIRMING_TRIP:
         // Create trip
         consumerViewModel.startSingleExclusiveTrip();
-        break;
     }
   }
 
@@ -449,8 +591,78 @@ public class SampleAppActivity extends AppCompatActivity
     remainingDistanceView.setVisibility(View.VISIBLE);
   }
 
-  private void displayErrorMessage(@StringRes int message) {
-    Snackbar.make(tripStatusView, message, Snackbar.LENGTH_SHORT).show();
+  private void displayErrorMessage(@StringRes int resourceId) {
+    Snackbar.make(tripStatusView, resourceId, Snackbar.LENGTH_SHORT).show();
+  }
+
+  private void displayPreviousTripMarkers(ImmutableList<TripWaypoint> waypoints) {
+    clearJourneySharingStateMarkers();
+
+    if (consumerViewModel.getAppState().getValue() == JOURNEY_SHARING) {
+      drawJourneySharingStateMarkers(waypoints);
+    }
+  }
+
+  /** Renders a polyline representing all the points contained for the given trip. */
+  private void drawTripPreviewPolyline() {
+    LatLng pickupLocation = consumerViewModel.getPickupLocation();
+    LatLng dropoffLocation = consumerViewModel.getDropoffLocation();
+
+    List<LatLng> intermediateDestinations = consumerViewModel.getIntermediateDestinations();
+
+    if (pickupLocation == null || dropoffLocation == null) {
+      return;
+    }
+
+    PolylineOptions polylineOptions =
+        new PolylineOptions()
+            .width(8.0f)
+            .color(TRIP_PREVIEW_POLYLINE_COLOR)
+            .geodesic(true)
+            .add(pickupLocation);
+
+    if (intermediateDestinations != null) {
+      for (LatLng destination : intermediateDestinations) {
+        polylineOptions.add(destination);
+      }
+    }
+
+    polylineOptions.add(dropoffLocation);
+
+    tripPreviewPolyline = googleMap.addPolyline(polylineOptions);
+  }
+
+  /** Centers the camera within the bounds of the trip preview polyline. */
+  private void centerCameraForTripPreview() {
+    LatLng pickupLocation = consumerViewModel.getPickupLocation();
+    LatLng dropoffLocation = consumerViewModel.getDropoffLocation();
+    List<LatLng> intermediateDestinations = consumerViewModel.getIntermediateDestinations();
+
+    if (pickupLocation == null || dropoffLocation == null) {
+      return;
+    }
+
+    LatLngBounds.Builder boundsBuilder = LatLngBounds.builder();
+    boundsBuilder.include(pickupLocation);
+    boundsBuilder.include(dropoffLocation);
+
+    if (intermediateDestinations != null) {
+      for (LatLng destination : intermediateDestinations) {
+        boundsBuilder.include(destination);
+      }
+    }
+
+    requireNonNull(googleMap)
+        .moveCamera(
+            CameraUpdateFactory.newLatLngBounds(
+                boundsBuilder.build(), TRIP_PREVIEW_CAMERA_PADDING));
+  }
+
+  /** Removes the trip preview polyline after a trip has been confirmed/cancelled. */
+  private void clearTripPreviewPolyline() {
+    if (tripPreviewPolyline != null) {
+      tripPreviewPolyline.remove();
+    }
   }
 
   private void initViews() {
@@ -465,6 +677,8 @@ public class SampleAppActivity extends AppCompatActivity
     dropoffPin = findViewById(R.id.dropoff_pin);
     actionButton = findViewById(R.id.actionButton);
     actionButton.setOnClickListener(this::onActionButtonTapped);
+    addStopButton = findViewById(R.id.addStopButton);
+    addStopButton.setOnClickListener(this::onAddStopButtonTapped);
     resetActionButton();
   }
 
@@ -491,45 +705,10 @@ public class SampleAppActivity extends AppCompatActivity
     consumerViewModel
         .getErrorMessage()
         .observe(SampleAppActivity.this, SampleAppActivity.this::displayErrorMessage);
-  }
 
-  private boolean hasRequiredPermissions() {
-    return ContextCompat.checkSelfPermission(this, permission.ACCESS_FINE_LOCATION)
-            == PackageManager.PERMISSION_GRANTED
-        && ContextCompat.checkSelfPermission(this, permission.ACCESS_COARSE_LOCATION)
-            == PackageManager.PERMISSION_GRANTED;
-  }
-
-  /**
-   * Callback from checking permission. If it is granted, the initialize the application, otherwise
-   * the application display a dialog indicating the missing permission.
-   */
-  @Override
-  public void onRequestPermissionsResult(
-      int requestCode, String[] permissions, int[] grantResults) {
-    super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-    if (requestCode != REQUEST_LOCATION_PERMISSION_CODE) {
-      return;
-    }
-    if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-      initializeSdk();
-      return;
-    }
-    // Tell the user that we need location permissions.
-    new AlertDialog.Builder(this)
-        .setTitle("")
-        .setMessage(R.string.msg_require_permissions)
-        .setPositiveButton(
-            android.R.string.ok,
-            (dialogInterface, i) -> {
-              dialogInterface.dismiss();
-              ActivityCompat.requestPermissions(
-                  this,
-                  new String[] {permission.ACCESS_FINE_LOCATION, permission.ACCESS_COARSE_LOCATION},
-                  REQUEST_LOCATION_PERMISSION_CODE);
-            })
-        .create()
-        .show();
+    consumerViewModel
+        .getPreviousTripWaypoints()
+        .observe(SampleAppActivity.this, SampleAppActivity.this::displayPreviousTripMarkers);
   }
 
   @Override

@@ -16,6 +16,7 @@ package com.google.mapsplatform.transportation.sample.driver;
 
 import static java.util.Objects.requireNonNull;
 
+import android.annotation.SuppressLint;
 import android.app.Application;
 import android.os.Bundle;
 import android.util.Log;
@@ -24,6 +25,7 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 import com.google.android.gms.maps.GoogleMap.CameraPerspective;
@@ -57,7 +59,8 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
   private VehicleIdStore vehicleIdStore;
   private SupportNavigationFragment navFragment;
   private TextView simulationStatusText;
-  private TextView tripMatchText;
+  private TextView tripIdText;
+  private TextView nextTripIdText;
   private TextView textVehicleId;
   private Button actionButton;
   private CardView tripCard;
@@ -74,13 +77,16 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
     Button editVehicleIdButton = findViewById(R.id.edit_button);
     editVehicleIdButton.setOnClickListener(this::onEditVehicleButtonClicked);
     tripCard = findViewById(R.id.trip_card);
-    tripMatchText = findViewById(R.id.trip_match);
+    tripIdText = findViewById(R.id.trip_id_label);
+    nextTripIdText = findViewById(R.id.next_trip_id_label);
     textVehicleId = findViewById(R.id.menu_vehicle_id);
     textVehicleId.setText(vehicleIdStore.readOrDefault());
     setupNavFragment();
     updateActionButton(TRIP_VIEW_INITIAL_STATE, null);
     actionButton.setOnClickListener(this::onActionButtonClicked);
 
+    showTripId(VehicleController.NO_TRIP_ID);
+    showNextTripId(VehicleController.NO_TRIP_ID);
     // Ensure the screen stays on during navigation.
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
@@ -123,9 +129,7 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
         future,
         new FutureCallback<Boolean>() {
           @Override
-          public void onSuccess(Boolean result) {
-            vehicleController.pollTrip();
-          }
+          public void onSuccess(Boolean result) {}
 
           @Override
           public void onFailure(Throwable e) {
@@ -163,17 +167,11 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
   }
 
   private void onActionButtonClicked(View view) {
-    TripStatus currentStatus = vehicleController.getTripStatus();
-    if (!currentStatus.isTerminalState()) {
-      TripStatus nextStatus = currentStatus.getNextStatus();
-      vehicleController.updateTripStatus(nextStatus);
-      // controller will call presenter to show NEW when polling succeeds.
-      if (nextStatus != TripStatus.NEW) {
-        showTripStatus(nextStatus);
-      }
-    }
+    vehicleController.processNextState();
   }
 
+  // Permissions are managed by the 'SplashScreenActivity'
+  @SuppressLint("MissingPermission")
   private void updateCameraPerspective(Boolean isTilted) {
     navFragment.getMapAsync(
         googleMap ->
@@ -181,7 +179,7 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
                 isTilted ? CameraPerspective.TILTED : CameraPerspective.TOP_DOWN_NORTH_UP));
   }
 
-  private void updateActionButton(Integer visibility, @Nullable Integer resourceId) {
+  private void updateActionButton(Integer visibility, @Nullable @StringRes Integer resourceId) {
     if (resourceId != null) {
       actionButton.setText(resourceId);
     }
@@ -191,7 +189,24 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
 
   @Override
   public void showTripId(String tripId) {
-    tripMatchText.setText(tripId);
+    if (!tripId.equals(VehicleController.NO_TRIP_ID)) {
+      tripIdText.setText(getResources().getString(R.string.trip_id_label, tripId));
+      return;
+    }
+
+    String noTripFoundText = getResources().getString(R.string.status_unknown);
+    tripIdText.setText(getResources().getString(R.string.trip_id_label, noTripFoundText));
+  }
+
+  @Override
+  public void showNextTripId(String tripId) {
+    if (tripId.equals(VehicleController.NO_TRIP_ID)) {
+      nextTripIdText.setVisibility(View.GONE);
+      return;
+    }
+
+    nextTripIdText.setText(getResources().getString(R.string.next_trip_id_label, tripId));
+    nextTripIdText.setVisibility(View.VISIBLE);
   }
 
   @Override
@@ -206,33 +221,57 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
     switch (status) {
       case UNKNOWN_TRIP_STATUS:
         buttonVisibility = TRIP_VIEW_INITIAL_STATE;
-        cardVisibility = TRIP_VIEW_INITIAL_STATE;
+        cardVisibility = View.VISIBLE;
         simulationStatusText.setText(resourceId);
         break;
+
       case NEW:
         simulationStatusText.setText(R.string.status_new);
         resourceId = R.string.button_start_trip;
         break;
+
       case ENROUTE_TO_PICKUP:
         simulationStatusText.setText(R.string.status_enroute_to_pickup);
         resourceId = R.string.button_arrived_at_pickup;
         isCameraTilted = true;
         break;
+
       case ARRIVED_AT_PICKUP:
         simulationStatusText.setText(R.string.status_arrived_at_pickup);
-        resourceId = R.string.button_enroute_to_dropoff;
+        resourceId =
+            vehicleController.hasIntermediateDestinations()
+                ? R.string.button_enroute_to_intermediate_stop
+                : R.string.button_enroute_to_dropoff;
         isCameraTilted = true;
         break;
+
       case ENROUTE_TO_DROPOFF:
         simulationStatusText.setText(R.string.status_enroute_to_dropoff);
         resourceId = R.string.button_trip_complete;
         isCameraTilted = true;
         break;
+
+      case ENROUTE_TO_INTERMEDIATE_DESTINATION:
+        simulationStatusText.setText(R.string.status_enroute_to_intermediate_location);
+        resourceId = R.string.button_arrived_at_intermediate_stop;
+        isCameraTilted = true;
+        break;
+
+      case ARRIVED_AT_INTERMEDIATE_DESTINATION:
+        simulationStatusText.setText(R.string.status_arrived_to_intermediate_location);
+        resourceId =
+            vehicleController.isOnLastIntermediateDestination()
+                ? R.string.button_enroute_to_dropoff
+                : R.string.button_enroute_to_intermediate_stop;
+        isCameraTilted = true;
+        break;
+
       case COMPLETE:
         resourceId = R.string.status_complete;
         buttonVisibility = View.GONE;
         simulationStatusText.setText(resourceId);
         break;
+
       case CANCELED:
         resourceId = R.string.status_canceled;
         buttonVisibility = View.GONE;
@@ -262,5 +301,12 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
       default:
         Log.w(TAG, String.format("Error loading Navigation API: %d", errorCode));
     }
+  }
+
+  @Override
+  protected void onDestroy() {
+    vehicleController.cleanUp();
+
+    super.onDestroy();
   }
 }

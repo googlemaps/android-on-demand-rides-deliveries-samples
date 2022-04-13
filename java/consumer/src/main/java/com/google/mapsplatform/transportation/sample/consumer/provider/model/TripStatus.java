@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.mapsplatform.transportation.sample.provider.model;
+package com.google.mapsplatform.transportation.sample.consumer.provider.model;
 
 /** A basic state machine with FleetEngine Trip status. */
 public enum TripStatus {

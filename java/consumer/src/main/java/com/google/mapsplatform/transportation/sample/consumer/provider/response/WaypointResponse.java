@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.mapsplatform.transportation.sample.provider.response;
+package com.google.mapsplatform.transportation.sample.consumer.provider.response;
 
 import androidx.annotation.VisibleForTesting;
 import com.google.gson.annotations.SerializedName;

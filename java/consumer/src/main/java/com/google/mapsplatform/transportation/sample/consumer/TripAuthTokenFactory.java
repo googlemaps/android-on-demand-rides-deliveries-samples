@@ -12,16 +12,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.mapsplatform.transportation.sample;
+package com.google.mapsplatform.transportation.sample.consumer;
 
 import static java.util.Objects.requireNonNull;
 
 import android.app.Application;
 import com.google.android.libraries.mapsplatform.transportation.consumer.auth.AuthTokenContext;
 import com.google.android.libraries.mapsplatform.transportation.consumer.auth.AuthTokenFactory;
-import com.google.mapsplatform.transportation.sample.provider.ProviderUtils;
-import com.google.mapsplatform.transportation.sample.provider.response.TokenResponse;
-import com.google.mapsplatform.transportation.sample.provider.service.LocalProviderService;
+import com.google.mapsplatform.transportation.sample.consumer.provider.ProviderUtils;
+import com.google.mapsplatform.transportation.sample.consumer.provider.response.TokenResponse;
+import com.google.mapsplatform.transportation.sample.consumer.provider.service.LocalProviderService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -31,6 +31,7 @@ import java.util.concurrent.ScheduledExecutorService;
 class TripAuthTokenFactory implements AuthTokenFactory {
   private String token;
   private long expiryTimeMs = 0;
+  private String tripId;
   private final LocalProviderService providerService;
 
   public TripAuthTokenFactory(Application application) {
@@ -46,21 +47,23 @@ class TripAuthTokenFactory implements AuthTokenFactory {
 
   @Override
   public String getToken(AuthTokenContext context) {
-    if (System.currentTimeMillis() > expiryTimeMs) {
-      fetchNewToken();
+    String tripId = requireNonNull(context.getTripId());
+    if (System.currentTimeMillis() > expiryTimeMs || !tripId.equals(this.tripId)) {
+      fetchNewToken(tripId);
     }
     return token;
   }
 
-  private void fetchNewToken() {
+  private void fetchNewToken(String tripId) {
     try {
-      TokenResponse tokenResponse = providerService.fetchAuthToken().get();
+      TokenResponse tokenResponse = providerService.fetchAuthToken(tripId).get();
       token = requireNonNull(tokenResponse.getToken());
 
       // The expiry time could be an hour from now, but just to try and avoid
       // passing expired tokens, we subtract 10 minutes from that time.
       long tenMinutesInMillis = 10 * 60 * 1000;
       expiryTimeMs = tokenResponse.getExpirationTimestamp().getMillis() - tenMinutesInMillis;
+      this.tripId = tripId;
     } catch (InterruptedException | ExecutionException e) {
       throw new RuntimeException("Could not get auth token", e);
     }

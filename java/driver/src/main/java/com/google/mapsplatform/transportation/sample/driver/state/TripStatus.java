@@ -20,55 +20,15 @@ public enum TripStatus {
   // Status values are broadcast to indicate current journey state. The values are defined
   // in trips.proto.
 
-  UNKNOWN_TRIP_STATUS {
-    @Override
-    public TripStatus getNextStatus() {
-      return this;
-    }
-  },
-  NEW {
-    @Override
-    public TripStatus getNextStatus() {
-      return ENROUTE_TO_PICKUP;
-    }
-  },
-  ENROUTE_TO_PICKUP {
-    @Override
-    public TripStatus getNextStatus() {
-      return ARRIVED_AT_PICKUP;
-    }
-  },
-  ARRIVED_AT_PICKUP {
-    @Override
-    public TripStatus getNextStatus() {
-      return ENROUTE_TO_DROPOFF;
-    }
-  },
-  ENROUTE_TO_DROPOFF {
-    @Override
-    public TripStatus getNextStatus() {
-      return COMPLETE;
-    }
-  },
-  COMPLETE {
-    @Override
-    public TripStatus getNextStatus() {
-      return this;
-    }
-  },
-  CANCELED {
-    @Override
-    public TripStatus getNextStatus() {
-      return this;
-    }
-  };
-
-  /**
-   * The next logical status based on the current one. Will return itself if it is a terminal state.
-   *
-   * @return next status or itself if terminal.
-   */
-  public abstract TripStatus getNextStatus();
+  UNKNOWN_TRIP_STATUS,
+  NEW,
+  ENROUTE_TO_PICKUP,
+  ARRIVED_AT_PICKUP,
+  ARRIVED_AT_INTERMEDIATE_DESTINATION,
+  ENROUTE_TO_INTERMEDIATE_DESTINATION,
+  ENROUTE_TO_DROPOFF,
+  COMPLETE,
+  CANCELED;
 
   /**
    * Convenience method to determine if the current status is terminal.
@@ -76,6 +36,6 @@ public enum TripStatus {
    * @return true if it is a terminal state.
    */
   public boolean isTerminalState() {
-    return getNextStatus() == this;
+    return this == COMPLETE || this == CANCELED;
   }
 }

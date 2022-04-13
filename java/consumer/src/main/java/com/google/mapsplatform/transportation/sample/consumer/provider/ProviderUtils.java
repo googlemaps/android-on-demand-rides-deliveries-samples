@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.mapsplatform.transportation.sample.provider;
+package com.google.mapsplatform.transportation.sample.consumer.provider;
 
 import static java.util.Objects.requireNonNull;
 

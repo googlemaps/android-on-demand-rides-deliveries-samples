@@ -22,6 +22,9 @@ public interface Presenter {
   /** Show trip ID in the main page. */
   void showTripId(String tripId);
 
+  /** Show Next trip ID in the main page. */
+  void showNextTripId(String tripId);
+
   /** Show trip status in the main page. */
   void showTripStatus(TripStatus status);
 }

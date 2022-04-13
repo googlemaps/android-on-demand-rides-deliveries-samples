@@ -19,22 +19,20 @@ import android.util.Log;
 import com.google.android.libraries.navigation.RoadSnappedLocationProvider;
 import com.google.android.libraries.navigation.RoadSnappedLocationProvider.LocationListener;
 import com.google.common.base.Splitter;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.mapsplatform.transportation.sample.driver.config.DriverTripConfig;
 import com.google.mapsplatform.transportation.sample.driver.config.DriverTripConfig.Point;
+import com.google.mapsplatform.transportation.sample.driver.provider.request.CreateVehicleBody;
 import com.google.mapsplatform.transportation.sample.driver.provider.request.TripUpdateBody;
-import com.google.mapsplatform.transportation.sample.driver.provider.request.VehicleIdBody;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.GetTripResponse;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.TokenResponse;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.TripData;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.VehicleResponse;
 import java.util.List;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
 import retrofit2.Retrofit;
 import retrofit2.adapter.guava.GuavaCallAdapterFactory;
@@ -53,34 +51,25 @@ public class LocalProviderService {
 
   private final RestProvider restProvider;
   private final Executor executor;
-  private final ScheduledExecutorService scheduledExecutor;
   private final RoadSnappedLocationProvider roadSnappedLocationProvider;
 
   public LocalProviderService(
       RestProvider restProvider,
       Executor executor,
-      ScheduledExecutorService scheduledExecutor,
       RoadSnappedLocationProvider roadSnappedLocationProvider) {
     this.restProvider = restProvider;
     this.executor = executor;
-    this.scheduledExecutor = scheduledExecutor;
     this.roadSnappedLocationProvider = roadSnappedLocationProvider;
   }
 
   /** Fetch JWT token from provider. */
-  public ListenableFuture<TokenResponse> fetchAuthToken() {
-    return restProvider.getAuthToken();
+  public ListenableFuture<TokenResponse> fetchAuthToken(String vehicleId) {
+    return restProvider.getAuthToken(vehicleId);
   }
 
-  /**
-   * Verifies periodically with the Journey Sharing provider for an available trip using an
-   * asynchronous task. When a trip is found the task is completed and the user location is fetched
-   * to complete the trip configuration and update the view model.
-   *
-   * @param vehicleId vehicle id to be matched on a trip.
-   */
-  public ListenableFuture<DriverTripConfig> pollAvailableTrip(String vehicleId) {
-    ListenableFuture<DriverTripConfig> tripConfigFuture = fetchAvailableTrip(vehicleId);
+  /** Fetches a trip identified by 'tripId' from the sample provider service. */
+  public ListenableFuture<DriverTripConfig> fetchTrip(String tripId, String vehicleId) {
+    ListenableFuture<DriverTripConfig> tripConfigFuture = fetchAvailableTrip(tripId, vehicleId);
     ListenableFuture<Location> roadSnappedLocationFuture = getRoadSnappedLocationFuture();
     return mergeTripConfigWithRoadSnappedLocation(tripConfigFuture, roadSnappedLocationFuture);
   }
@@ -113,7 +102,7 @@ public class LocalProviderService {
    *
    * @param tripId ID of the trip being updated.
    * @param status Fleet-Engine compatible name of the status.
-   * @param intermediateDestinationIndex
+   * @param intermediateDestinationIndex Index pointing to the current intermediate destination.
    */
   public void updateTripStatusWithIntermediateDestinationIndex(
       String tripId, String status, int intermediateDestinationIndex) {
@@ -149,6 +138,11 @@ public class LocalProviderService {
         executor);
   }
 
+  /** Fetches a vehicle identified by 'vehicleId' from the sample provider service. */
+  public ListenableFuture<VehicleResponse> fetchVehicle(String vehicleId) {
+    return restProvider.getVehicle(vehicleId);
+  }
+
   private ListenableFuture<VehicleResponse> fetchOrCreateVehicle(String vehicleId) {
     SettableFuture<VehicleResponse> resultFuture = SettableFuture.create();
     ListenableFuture<VehicleResponse> responseFuture = restProvider.getVehicle(vehicleId);
@@ -162,9 +156,10 @@ public class LocalProviderService {
 
           @Override
           public void onFailure(Throwable t) {
-            VehicleIdBody vehicleIdBody = new VehicleIdBody();
-            vehicleIdBody.setVehicleId(vehicleId);
-            resultFuture.setFuture(restProvider.createVehicle(vehicleIdBody));
+            CreateVehicleBody createVehicleBody = new CreateVehicleBody();
+            createVehicleBody.setVehicleId(vehicleId);
+            createVehicleBody.setBackToBackEnabled(true);
+            resultFuture.setFuture(restProvider.createVehicle(createVehicleBody));
           }
         },
         executor);
@@ -185,9 +180,9 @@ public class LocalProviderService {
             executor);
   }
 
-  private ListenableFuture<DriverTripConfig> fetchAvailableTrip(String vehicleId) {
-    ListenableFuture<GetTripResponse> availableTripFuture =
-        fetchAvailableTripWithRetires(vehicleId);
+  private ListenableFuture<DriverTripConfig> fetchAvailableTrip(String tripId, String vehicleId) {
+    ListenableFuture<GetTripResponse> availableTripFuture = restProvider.getAvailableTrip(tripId);
+
     return Futures.transform(
         availableTripFuture,
         availableTripResponse -> {
@@ -195,26 +190,19 @@ public class LocalProviderService {
           String tripName = availableTrip.getName();
           // Expects trip name to be on format providers/<projectId>/trips/<tripId>
           List<String> parts = SPLITTER.splitToList(tripName);
-          String tripId = Iterables.getLast(parts);
           String projectId = parts.get(PROJECT_ID_INDEX);
+
           DriverTripConfig config = new DriverTripConfig();
+
           config.setTripId(tripId);
           config.setVehicleId(vehicleId);
           config.setProjectId(projectId);
           config.setWaypoints(availableTrip.getWaypoints());
           config.setRouteToken(availableTripResponse.getRouteToken());
+
           return config;
         },
         executor);
-  }
-
-  private ListenableFuture<GetTripResponse> fetchAvailableTripWithRetires(String vehicleId) {
-    return new RetryingFuture(scheduledExecutor)
-        .runWithRetries(
-            () -> restProvider.getAvailableTrip(vehicleId),
-            RetryingFuture.RUN_FOREVER,
-            GET_TRIP_RETRY_INTERVAL_MILLIS,
-            LocalProviderService::isTripValid);
   }
 
   private ListenableFuture<Location> getRoadSnappedLocationFuture() {

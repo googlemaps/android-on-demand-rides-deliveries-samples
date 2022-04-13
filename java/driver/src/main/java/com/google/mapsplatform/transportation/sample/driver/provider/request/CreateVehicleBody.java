@@ -12,19 +12,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.mapsplatform.transportation.sample;
+package com.google.mapsplatform.transportation.sample.driver.provider.request;
 
-import androidx.annotation.IntDef;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
+/** Body object for a vehicle creation request. */
+public class CreateVehicleBody {
 
-/** Types of markers that are drawn by the sample app. */
-@Retention(RetentionPolicy.SOURCE)
-@IntDef({ConsumerMarkerType.PICKUP_POINT, ConsumerMarkerType.DROPOFF_POINT})
-public @interface ConsumerMarkerType {
-  /** Marker representing the pickup location. */
-  int PICKUP_POINT = 1;
+  private String vehicleId;
 
-  /** Marker representing the dropoff location. */
-  int DROPOFF_POINT = 2;
+  private Boolean backToBackEnabled;
+
+  public String getVehicleId() {
+    return vehicleId;
+  }
+
+  public Boolean getBackToBackEnabled() {
+    return backToBackEnabled;
+  }
+
+  public void setVehicleId(String vehicleId) {
+    this.vehicleId = vehicleId;
+  }
+
+  public void setBackToBackEnabled(Boolean backToBackEnabled) {
+    this.backToBackEnabled = backToBackEnabled;
+  }
 }

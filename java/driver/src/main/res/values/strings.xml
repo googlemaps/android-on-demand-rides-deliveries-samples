@@ -1,15 +1,17 @@
 <resources>
     <!-- Name of the app  [CHAR_LIMIT=20]-->
     <string name="app_name">Driver App</string>
-    <string name="msg_require_permissions">App will not function unless location permissions are granted</string>
+    <string name="msg_require_permissions">App will not function unless the following permissions are granted: %1$s</string>
     <string name="msg_provider_connection_error">Can\'t connect to Provider backend</string>
     <!-- Button label to retry to connect to the provider backend [CHAR_LIMIT=50] -->
     <string name="button_retry">Retry</string>
 
     <!-- Label for vehicle add on top bar [CHAR_LIMIT=50] -->
     <string name="vehicle_id_label">Vehicle ID:</string>
-    <!-- Label for trip id on card view [CHAR_LIMIT=50] -->
-    <string name="trip_id_label">Trip ID:</string>
+    <!--Label for Trip Match [CHAR_LIMIT=50] -->
+    <string name="trip_id_label" translatable="false">Trip Id: %1$s</string>
+    <!--Label for Next Trip Match [CHAR_LIMIT=50] -->
+    <string name="next_trip_id_label" translatable="false">Next Trip Id: %1$s</string>
     <!-- Unset vehicle status label [CHAR_LIMIT=50] -->
     <string name="unset_vehicle_id">unset vehicle</string>
     <string name="vehicle_state">Vehicle State</string>
@@ -22,6 +24,10 @@
     <string name="button_enroute_to_dropoff">Drive to dropoff</string>
     <!-- Button label to complete a trip [CHAR_LIMIT=50] -->
     <string name="button_trip_complete">Complete trip</string>
+    <!-- Button label to indicate arrival at an intermediate stop [CHAR_LIMIT=50] -->
+    <string name="button_arrived_at_intermediate_stop">Arrived at intermediate stop</string>
+    <!-- Button label to navigate to intermediate stop [CHAR_LIMIT=50] -->
+    <string name="button_enroute_to_intermediate_stop">Drive to intermediate stop</string>
 
     <!-- Waiting for a trip to be assigned [CHAR_LIMIT=50] -->
     <string name="status_idle">Waiting for trip</string>
@@ -35,6 +41,11 @@
     <string name="status_arrived_at_pickup">Arrived at pickup</string>
     <!-- Trip status enroute to dropoff [CHAR_LIMIT=50] -->
     <string name="status_enroute_to_dropoff">Dropping off rider</string>
+    <!-- Trip status enroute to intermediate stop [CHAR_LIMIT=50] -->
+    <string name="status_enroute_to_intermediate_location">Driving to intermediate stop</string>
+    <!-- Trip status arrived to intermediate stop [CHAR_LIMIT=50] -->
+    <string name="status_arrived_to_intermediate_location">Arrived at intermediate stop</string>
+
     <!-- Trip status complete [CHAR_LIMIT=50] -->
     <string name="status_complete">Trip complete</string>
     <!-- Trip status canceled [CHAR_LIMIT=50] -->

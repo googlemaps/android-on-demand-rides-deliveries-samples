@@ -31,7 +31,8 @@ import java.util.concurrent.ScheduledExecutorService;
 class TripAuthTokenFactory implements AuthTokenFactory {
   private String token;
   private long expiryTimeMs = 0;
-  private LocalProviderService providerService;
+  private String vehicleId;
+  private final LocalProviderService providerService;
 
   TripAuthTokenFactory(
       Application application,
@@ -44,27 +45,28 @@ class TripAuthTokenFactory implements AuthTokenFactory {
         new LocalProviderService(
             LocalProviderService.createRestProvider(ProviderUtils.getProviderBaseUrl(application)),
             executor,
-            scheduledExecutor,
             roadSnappedLocationProvider);
   }
 
   @Override
   public String getToken(AuthTokenContext context) {
-    if (System.currentTimeMillis() > expiryTimeMs) {
-      fetchNewToken();
+    String vehicleId = requireNonNull(context.getVehicleId());
+    if (System.currentTimeMillis() > expiryTimeMs || !vehicleId.equals(this.vehicleId)) {
+      fetchNewToken(vehicleId);
     }
     return token;
   }
 
-  private void fetchNewToken() {
+  private void fetchNewToken(String vehicleId) {
     try {
-      TokenResponse tokenResponse = providerService.fetchAuthToken().get();
+      TokenResponse tokenResponse = providerService.fetchAuthToken(vehicleId).get();
       token = requireNonNull(tokenResponse.getToken());
 
       // The expiry time could be an hour from now, but just to try and avoid
       // passing expired tokens, we subtract 10 minutes from that time.
       long tenMinutesInMillis = 10 * 60 * 1000;
       expiryTimeMs = tokenResponse.getExpirationTimestamp().getMillis() - tenMinutesInMillis;
+      this.vehicleId = vehicleId;
     } catch (InterruptedException | ExecutionException e) {
       throw new RuntimeException("Could not get auth token", e);
     }

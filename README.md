@@ -54,12 +54,12 @@ PROVIDER_URL=http://10.0.2.2:8080
 
 ```bash
 ./gradlew :java:driver:assembleDebug &&\
-adb -s YOUR_EMULATOR_ID shell am start -n com.google.mapsplatform.transportation.sample/.SplashScreenActivity
+adb -s YOUR_EMULATOR_ID shell am start -n com.google.mapsplatform.transportation.sample.driver/.SplashScreenActivity
 ```
 
 ```bash
 ./gradlew :java:consumer:assembleDebug &&\
-adb -s YOUR_EMULATOR_ID shell am start -n com.google.mapsplatform.transportation.sample.driver/.SplashScreenActivity
+adb -s YOUR_EMULATOR_ID shell am start -n com.google.mapsplatform.transportation.sample.consumer/.SplashScreenActivity
 ```
 
 #### Use Android Studio

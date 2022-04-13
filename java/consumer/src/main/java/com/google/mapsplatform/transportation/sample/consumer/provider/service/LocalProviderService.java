@@ -12,18 +12,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.mapsplatform.transportation.sample.provider.service;
+package com.google.mapsplatform.transportation.sample.consumer.provider.service;
 
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripName;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.mapsplatform.transportation.sample.provider.model.TripData;
-import com.google.mapsplatform.transportation.sample.provider.model.TripStatus;
-import com.google.mapsplatform.transportation.sample.provider.model.WaypointData;
-import com.google.mapsplatform.transportation.sample.provider.response.GetTripResponse;
-import com.google.mapsplatform.transportation.sample.provider.response.TokenResponse;
-import com.google.mapsplatform.transportation.sample.provider.response.TripResponse;
+import com.google.mapsplatform.transportation.sample.consumer.provider.model.TripData;
+import com.google.mapsplatform.transportation.sample.consumer.provider.model.TripStatus;
+import com.google.mapsplatform.transportation.sample.consumer.provider.model.WaypointData;
+import com.google.mapsplatform.transportation.sample.consumer.provider.response.GetTripResponse;
+import com.google.mapsplatform.transportation.sample.consumer.provider.response.TokenResponse;
+import com.google.mapsplatform.transportation.sample.consumer.provider.response.TripResponse;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import retrofit2.Retrofit;
@@ -57,8 +57,8 @@ public class LocalProviderService {
     return provider.createSingleExclusiveTrip(waypoint);
   }
 
-  public ListenableFuture<TokenResponse> fetchAuthToken() {
-    return provider.getConsumerToken();
+  public ListenableFuture<TokenResponse> fetchAuthToken(String tripId) {
+    return provider.getConsumerToken(tripId);
   }
 
   public ListenableFuture<TripData> fetchMatchedTrip(String tripName) {

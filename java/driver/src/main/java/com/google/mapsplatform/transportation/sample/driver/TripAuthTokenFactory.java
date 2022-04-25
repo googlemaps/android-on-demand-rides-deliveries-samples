@@ -39,8 +39,6 @@ class TripAuthTokenFactory implements AuthTokenFactory {
       Executor executor,
       RoadSnappedLocationProvider roadSnappedLocationProvider) {
 
-    ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
-
     providerService =
         new LocalProviderService(
             LocalProviderService.createRestProvider(ProviderUtils.getProviderBaseUrl(application)),

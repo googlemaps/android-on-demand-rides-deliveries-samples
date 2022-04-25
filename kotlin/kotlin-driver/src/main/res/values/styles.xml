@@ -1,0 +1,22 @@
+<resources>
+  <!-- Base application theme. -->
+  <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
+      <item name="colorPrimary">@color/primaryColor</item>
+      <item name="colorPrimaryDark">@color/primaryColorDark</item>
+      <item name="colorAccent">@color/actionable</item>
+      <item name="android:windowTranslucentStatus">true</item>
+      <item name="android:navigationBarColor">@color/navigationBarColor</item>
+      <item name="android:windowLightNavigationBar">true</item>
+  </style>
+
+  <style name="SplashScreenTheme" parent="Theme.AppCompat.Light.NoActionBar">
+    <item name="android:windowBackground">@drawable/splash_background</item>
+    <item name="android:windowFullscreen">true</item>
+  </style>
+
+  <style name="DialogSectionHeaderText" parent="TextAppearance.AppCompat.Light.Widget.PopupMenu.Small">
+    <item name="android:textColor">@color/primaryColor</item>
+  </style>
+
+  <style name="DialogCaptionText" parent="TextAppearance.AppCompat.Caption"/>
+</resources>

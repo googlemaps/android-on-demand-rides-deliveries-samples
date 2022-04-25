@@ -65,12 +65,6 @@ public final class TripState {
     return serverTripConfig.getWaypoints().length > 2;
   }
 
-  // Resets the current trip state.
-  public void resetTripState() {
-    status = TripStatus.UNKNOWN_TRIP_STATUS;
-    waypointIndex = -1;
-  }
-
   // Sets the current trip state as matched. Example: has been paired but is not yet in route.
   public void setTripMatchedState() {
     status = TripStatus.NEW;

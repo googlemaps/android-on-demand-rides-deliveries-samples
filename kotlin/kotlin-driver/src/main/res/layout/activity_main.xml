@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright 2020 Google LLC
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+         https://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/primaryColor"
+    android:orientation="vertical">
+
+  <androidx.constraintlayout.widget.ConstraintLayout
+      android:layout_width="match_parent"
+      android:layout_height="36dp"
+      android:layout_marginTop="@dimen/status_bar_height"
+      android:background="@color/primaryColor">
+    <Button
+        android:id="@+id/edit_button"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginStart="@dimen/text_margin"
+        android:layout_marginEnd="@dimen/text_margin"
+        android:background="@drawable/profile_icon"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/menu_vehicle_id"
+        app:layout_constraintTop_toTopOf="parent" />
+    <TextView
+        android:id="@+id/menu_vehicle_id"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:ellipsize="end"
+        android:fontFamily="@font/roboto"
+        android:gravity="center_vertical"
+        android:scrollHorizontally="false"
+        android:singleLine="true"
+        android:text="@string/unset_vehicle_id"
+        android:textColor="@color/primaryTextDarkBg"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/edit_button"
+        app:layout_constraintStart_toEndOf="@+id/textView"
+        app:layout_constraintTop_toTopOf="parent" />
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/text_margin"
+        android:fontFamily="@font/roboto"
+        android:gravity="start"
+        android:text="@string/vehicle_id_label"
+        android:textColor="@color/primaryTextDarkBg"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/menu_vehicle_id"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+  </androidx.constraintlayout.widget.ConstraintLayout>
+
+  <FrameLayout
+      android:id="@+id/nav_fragment_frame"
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1"
+      android:background="#FFF" />
+  <androidx.cardview.widget.CardView
+      android:id="@+id/trip_card"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      app:cardElevation="8dp"
+      app:cardMaxElevation="8dp">
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+      <TextView
+          android:id="@+id/simulation_status"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="@dimen/text_margin"
+          android:layout_marginTop="20dp"
+          android:layout_marginBottom="10dp"
+          android:fontFamily="@font/roboto_bold"
+          android:text="@string/status_idle"
+          android:textColor="@color/primaryColor"
+          android:textSize="18sp"
+          app:layout_constraintStart_toStartOf="parent"
+          app:layout_constraintTop_toTopOf="parent"
+          app:layout_constraintBottom_toTopOf="@+id/trip_id_label" />
+
+
+      <TextView
+          android:id="@+id/trip_id_label"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="@dimen/text_margin"
+          android:layout_marginBottom="10dp"
+          android:fontFamily="@font/roboto"
+          android:text="@string/trip_id_label"
+          android:textColor="@color/cardInfoText"
+          android:textSize="14sp"
+          app:layout_constraintStart_toStartOf="parent"
+          app:layout_constraintBottom_toTopOf="@+id/next_trip_id_label" />
+
+
+      <TextView
+          android:visibility="gone"
+          android:id="@+id/next_trip_id_label"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="@dimen/text_margin"
+          android:layout_marginBottom="10dp"
+          android:fontFamily="@font/roboto"
+          android:text="@string/next_trip_id_label"
+          android:textColor="@color/cardInfoText"
+          android:textSize="14sp"
+          app:layout_constraintStart_toStartOf="parent"
+          app:layout_constraintBottom_toTopOf="@+id/action_button"/>
+
+      <Button
+          android:id="@+id/action_button"
+          android:layout_width="0dp"
+          android:layout_height="48dp"
+          android:layout_marginStart="@dimen/text_margin"
+          android:layout_marginEnd="@dimen/text_margin"
+          android:layout_marginBottom="18dp"
+          android:background="@drawable/rounded_button"
+          android:fontFamily="@font/roboto_medium"
+          android:text="@string/status_unknown"
+          android:textAllCaps="false"
+          android:textColor="@color/primaryTextDarkBg"
+          android:textSize="18sp"
+          app:layout_constraintBottom_toBottomOf="parent"
+          app:layout_constraintEnd_toEndOf="parent"
+          app:layout_constraintStart_toStartOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+  </androidx.cardview.widget.CardView>
+  <View
+      android:id="@+id/divider"
+      android:layout_width="match_parent"
+      android:layout_height="1dp"
+      android:background="@color/dividerColor" />
+</LinearLayout>

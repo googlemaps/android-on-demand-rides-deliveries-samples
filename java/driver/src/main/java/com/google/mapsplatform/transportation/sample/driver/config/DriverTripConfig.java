@@ -106,7 +106,7 @@ public class DriverTripConfig {
       this.point = point;
     }
 
-    @SerializedName(value = "point", alternate = "point_")
+    @SerializedName(value = "point")
     private Point point;
   }
 
@@ -131,10 +131,10 @@ public class DriverTripConfig {
       this.longitude = longitude;
     }
 
-    @SerializedName(value = "latitude", alternate = "latitude_")
+    @SerializedName(value = "latitude")
     private double latitude;
 
-    @SerializedName(value = "longitude", alternate = "longitude_")
+    @SerializedName(value = "longitude")
     private double longitude;
   }
 

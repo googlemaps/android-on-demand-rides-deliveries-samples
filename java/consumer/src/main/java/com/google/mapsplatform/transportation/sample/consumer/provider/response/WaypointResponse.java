@@ -56,10 +56,10 @@ public class WaypointResponse {
 
   /** Represents LatLng point for a given location. */
   public static class Point {
-    @SerializedName(value = "latitude_")
+    @SerializedName(value = "latitude")
     private double latitude;
 
-    @SerializedName(value = "longitude_")
+    @SerializedName(value = "longitude")
     private double longitude;
 
     public double getLatitude() {

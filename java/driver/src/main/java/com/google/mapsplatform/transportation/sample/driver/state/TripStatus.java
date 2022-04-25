@@ -28,14 +28,5 @@ public enum TripStatus {
   ENROUTE_TO_INTERMEDIATE_DESTINATION,
   ENROUTE_TO_DROPOFF,
   COMPLETE,
-  CANCELED;
-
-  /**
-   * Convenience method to determine if the current status is terminal.
-   *
-   * @return true if it is a terminal state.
-   */
-  public boolean isTerminalState() {
-    return this == COMPLETE || this == CANCELED;
-  }
+  CANCELED
 }

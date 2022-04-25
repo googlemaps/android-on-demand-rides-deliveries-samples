@@ -1,4 +1,4 @@
-/* Copyright 2020 Google LLC
+/* Copyright 2022 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,14 +28,5 @@ public enum TripStatus {
   ENROUTE_TO_INTERMEDIATE_DESTINATION,
   ENROUTE_TO_DROPOFF,
   COMPLETE,
-  CANCELED;
-
-  /**
-   * Convenience method to determine if the current status is terminal.
-   *
-   * @return true if it is a terminal state.
-   */
-  public boolean isTerminalState() {
-    return this == COMPLETE || this == CANCELED;
-  }
+  CANCELED
 }

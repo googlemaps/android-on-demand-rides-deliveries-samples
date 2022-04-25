@@ -4,6 +4,16 @@ This repository contains the source code of the following samples
 
 1. Driver SDK sample (written in Java) in `/java/driver` directory.
 2. Consumer SDK sample (written in Java) in `/java/consumer` directory.
+3. Driver SDK sample (written in Kotlin) in `/kotlin/kotlin-driver` directory.
+4. Consumer SDK sample (written in Kotlin) in `/kotlin/kotlin-consumer` directory.
+
+Note: compared to the Java source, the Kotlin source will have
+- The same project structure
+- The same arrangement of classes
+- Within a class, the same arrangement of variables and methods
+
+Idiomatic Kotlin implementations are applied in the method level so overall
+the projects of two languages are consistent.
 
 ## Architecture
 
@@ -33,7 +43,10 @@ The end result should be as follows:
 is up and running.
 3. Please make sure two Android emulators are up and running by following
 [Create and manage virtual devices](https://developer.android.com/studio/run/managing-avds)
-4. This project follows Google's Java code style guide (https://google.github.io/styleguide/javaguide.html), please consider integrating into your IDE a plugin to automatically format your code as per guidelines. Example: https://github.com/google/google-java-format#intellij-android-studio-and-other-jetbrains-ides
+4. This project follows Google's Java code style guide
+   (https://google.github.io/styleguide/javaguide.html), please consider
+   integrating into your IDE a plugin to automatically format your code as per
+   guidelines. Example: https://github.com/google/google-java-format#intellij-android-studio-and-other-jetbrains-ides
 
 ## Getting started
 
@@ -60,6 +73,16 @@ adb -s YOUR_EMULATOR_ID shell am start -n com.google.mapsplatform.transportation
 ```bash
 ./gradlew :java:consumer:assembleDebug &&\
 adb -s YOUR_EMULATOR_ID shell am start -n com.google.mapsplatform.transportation.sample.consumer/.SplashScreenActivity
+```
+
+```bash
+./gradlew :kotlin:kotlin-driver:assembleDebug &&\
+adb -s YOUR_EMULATOR_ID shell am start -n com.google.mapsplatform.transportation.sample.kotlindriver/.SplashScreenActivity
+```
+
+```bash
+./gradlew :kotlin:kotlin-consumer:assembleDebug &&\
+adb -s YOUR_EMULATOR_ID shell am start -n com.google.mapsplatform.transportation.sample.kotlinconsumer/.SplashScreenActivity
 ```
 
 #### Use Android Studio

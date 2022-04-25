@@ -1,4 +1,4 @@
-/* Copyright 2020 Google LLC
+/* Copyright 2022 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,10 +56,10 @@ public class WaypointResponse {
 
   /** Represents LatLng point for a given location. */
   public static class Point {
-    @SerializedName(value = "latitude_")
+    @SerializedName(value = "latitude")
     private double latitude;
 
-    @SerializedName(value = "longitude_")
+    @SerializedName(value = "longitude")
     private double longitude;
 
     public double getLatitude() {

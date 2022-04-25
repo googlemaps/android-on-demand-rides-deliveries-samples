@@ -1,4 +1,4 @@
-/* Copyright 2020 Google LLC
+/* Copyright 2022 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,7 +76,6 @@ public class SampleAppActivity extends AppCompatActivity
   private static final String TAG = "SampleAppActivity";
 
   private static final long MINUTE_IN_MILLIS = 1000 * 60;
-  private static final int REQUEST_LOCATION_PERMISSION_CODE = 99;
   /** Default zoom of initial map state. */
   private static final int DEFAULT_ZOOM = 16;
   /** Default Map location if failed to receive FLP location. Defaulted to Google MTV. */

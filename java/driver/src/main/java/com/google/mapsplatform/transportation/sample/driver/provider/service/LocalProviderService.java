@@ -1,4 +1,4 @@
-/* Copyright 2020 Google LLC
+/* Copyright 2022 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,13 +41,12 @@ import retrofit2.converter.gson.GsonConverterFactory;
 /** Communicates with stub local provider. */
 public class LocalProviderService {
   private static final String TAG = "LocalProviderService";
-  public static final int GET_TRIP_RETRY_INTERVAL_MILLIS = 5000;
+
   /** String splitter for a slash. */
   private static final Splitter SPLITTER = Splitter.on('/');
+
   /** Index of a project id on trip name that has been split. */
   private static final int PROJECT_ID_INDEX = 1;
-
-  private static final int TRIP_NAME_SEGMENT_COUNT = 4;
 
   private final RestProvider restProvider;
   private final Executor executor;
@@ -238,15 +237,6 @@ public class LocalProviderService {
     roadSnappedLocationProvider.addLocationListener(locationListener);
 
     return locationFuture;
-  }
-
-  private static boolean isTripValid(GetTripResponse tripResponse) {
-    TripData availableTrip = tripResponse.getTripData();
-    if (availableTrip == null) {
-      return false;
-    }
-    List<String> parts = SPLITTER.splitToList(availableTrip.getName());
-    return parts.size() == TRIP_NAME_SEGMENT_COUNT;
   }
 
   private static Point getDriverPoint(@Nullable Location location) {

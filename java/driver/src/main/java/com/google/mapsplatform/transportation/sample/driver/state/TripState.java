@@ -1,4 +1,4 @@
-/* Copyright 2020 Google LLC
+/* Copyright 2022 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,12 +63,6 @@ public final class TripState {
   // Return trip if current trip has more then 2 destinations (pickup, dropoff).
   public boolean hasIntermediateDestinations() {
     return serverTripConfig.getWaypoints().length > 2;
-  }
-
-  // Resets the current trip state.
-  public void resetTripState() {
-    status = TripStatus.UNKNOWN_TRIP_STATUS;
-    waypointIndex = -1;
   }
 
   // Sets the current trip state as matched. Example: has been paired but is not yet in route.

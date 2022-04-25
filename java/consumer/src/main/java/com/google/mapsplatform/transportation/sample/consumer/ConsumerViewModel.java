@@ -1,4 +1,4 @@
-/* Copyright 2020 Google LLC
+/* Copyright 2022 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,6 @@ import com.google.mapsplatform.transportation.sample.consumer.provider.ProviderU
 import com.google.mapsplatform.transportation.sample.consumer.provider.model.TripData;
 import com.google.mapsplatform.transportation.sample.consumer.provider.model.TripStatus;
 import com.google.mapsplatform.transportation.sample.consumer.provider.model.WaypointData;
-import com.google.mapsplatform.transportation.sample.consumer.provider.response.TokenResponse;
 import com.google.mapsplatform.transportation.sample.consumer.provider.response.TripResponse;
 import com.google.mapsplatform.transportation.sample.consumer.provider.response.WaypointResponse;
 import com.google.mapsplatform.transportation.sample.consumer.provider.service.LocalProviderService;
@@ -139,10 +138,6 @@ public class ConsumerViewModel extends AndroidViewModel {
             scheduledExecutor);
     appState.setValue(AppStates.UNINITIALIZED);
     mainExecutor = ContextCompat.getMainExecutor(application);
-  }
-
-  public ListenableFuture<TokenResponse> fetchAuthToken(String tripId) {
-    return providerService.fetchAuthToken(tripId);
   }
 
   /** Creates a trip in the sample provider. */

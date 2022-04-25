@@ -1,4 +1,4 @@
-/* Copyright 2020 Google LLC
+/* Copyright 2022 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,8 +73,6 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
 
   private static final int ON_TRIP_FINISHED_DELAY_SECONDS = 5;
 
-  private static final String PICKUP_WAYPOINT = "PICKUP_WAYPOINT_TYPE";
-  private static final String DROP_OFF_WAYPOINT = "DROP_OFF_WAYPOINT_TYPE";
   private static final String TAG = "VehicleController";
 
   // Location update interval when the vehicle is waiting for a trip match.

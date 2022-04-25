@@ -1,0 +1,107 @@
+<resources>
+    <!-- Name of the app  [CHAR_LIMIT=20]-->
+    <string name="app_name">KT Driver App</string>
+    <string name="msg_require_permissions">App will not function unless the following permissions are granted: %1$s</string>
+    <string name="msg_provider_connection_error">Can\'t connect to Provider backend</string>
+    <!-- Button label to retry to connect to the provider backend [CHAR_LIMIT=50] -->
+    <string name="button_retry">Retry</string>
+
+    <!-- Label for vehicle add on top bar [CHAR_LIMIT=50] -->
+    <string name="vehicle_id_label">Vehicle ID:</string>
+    <!--Label for Trip Match [CHAR_LIMIT=50] -->
+    <string name="trip_id_label" translatable="false">Trip Id: %1$s</string>
+    <!--Label for Next Trip Match [CHAR_LIMIT=50] -->
+    <string name="next_trip_id_label" translatable="false">Next Trip Id: %1$s</string>
+    <!-- Unset vehicle status label [CHAR_LIMIT=50] -->
+    <string name="unset_vehicle_id">unset vehicle</string>
+    <string name="vehicle_state">Vehicle State</string>
+
+    <!-- Button label to start a trip [CHAR_LIMIT=50] -->
+    <string name="button_start_trip">Start navigation</string>
+    <!-- Button label to indicate arrival at a pickup point [CHAR_LIMIT=50] -->
+    <string name="button_arrived_at_pickup">Arrived at pickup</string>
+    <!-- Button label to navigate to dropoff point [CHAR_LIMIT=50] -->
+    <string name="button_enroute_to_dropoff">Drive to dropoff</string>
+    <!-- Button label to complete a trip [CHAR_LIMIT=50] -->
+    <string name="button_trip_complete">Complete trip</string>
+    <!-- Button label to indicate arrival at an intermediate stop [CHAR_LIMIT=50] -->
+    <string name="button_arrived_at_intermediate_stop">Arrived at intermediate stop</string>
+    <!-- Button label to navigate to intermediate stop [CHAR_LIMIT=50] -->
+    <string name="button_enroute_to_intermediate_stop">Drive to intermediate stop</string>
+
+    <!-- Waiting for a trip to be assigned [CHAR_LIMIT=50] -->
+    <string name="status_idle">Waiting for trip</string>
+    <!-- Trip status unknown [CHAR_LIMIT=50] -->
+    <string name="status_unknown">No trip assigned</string>
+    <!-- Trip status new [CHAR_LIMIT=50] -->
+    <string name="status_new">New trip</string>
+    <!-- Trip status enroute to pickup [CHAR_LIMIT=50] -->
+    <string name="status_enroute_to_pickup">Picking up rider</string>
+    <!-- Trip status arrived at pickup [CHAR_LIMIT=50] -->
+    <string name="status_arrived_at_pickup">Arrived at pickup</string>
+    <!-- Trip status enroute to dropoff [CHAR_LIMIT=50] -->
+    <string name="status_enroute_to_dropoff">Dropping off rider</string>
+    <!-- Trip status enroute to intermediate stop [CHAR_LIMIT=50] -->
+    <string name="status_enroute_to_intermediate_location">Driving to intermediate stop</string>
+    <!-- Trip status arrived to intermediate stop [CHAR_LIMIT=50] -->
+    <string name="status_arrived_to_intermediate_location">Arrived at intermediate stop</string>
+
+    <!-- Trip status complete [CHAR_LIMIT=50] -->
+    <string name="status_complete">Trip complete</string>
+    <!-- Trip status canceled [CHAR_LIMIT=50] -->
+    <string name="status_canceled">Trip canceled</string>
+    <!-- The simulation has stopped [CHAR_LIMIT=50] -->
+    <string name="stop_simulation">Stop simulation</string>
+    <!-- Trip name is not available [CHAR_LIMIT=50] -->
+    <string name="no_trip_name">No Trip</string>
+
+    <string name="new_match">New Match:</string>
+    <string name="button_accept">Accept</string>
+    <string name="button_decline">Decline</string>
+
+    <string name="set_vehicle_info_title">Set Vehicle Info</string>
+    <string name="vehicle_id_text">Vehicle Id</string>
+    <string name="match_filter_text">Match Filter</string>
+    <string name="vehicle_type_text">Vehicle Type</string>
+    <string name="vehicle_capacity_text">Vehicle Capacity</string>
+    <string name="vehicle_type_info_text">(must change vehicle id to change vehicle type)</string>
+    <!-- Header for section where the supported trip types can be selected. [CHAR_LIMIT=NONE] -->
+    <string name="trip_type_text">Trip Type(s)</string>
+    <!-- Option for exclusive trip type. [CHAR_LIMIT=NONE] -->
+    <string name="trip_type_exclusive">Exclusive</string>
+    <!-- Option for shared trip type. [CHAR_LIMIT=NONE] -->
+    <string name="trip_type_shared">Shared</string>
+    <!-- Explanatory toast that prompts user to change the vehicle Id if new vehicle creation is required. [CHAR_LIMIT=NONE] -->
+    <string name="vehicle_info_modified">Changed unmodifiable vehicle attribute. Set different vehicleId for a new vehicle.</string>
+
+    <string name="trip_mark_complete">Mark Trip Complete</string>
+    <string name="trip_go_to_dropoff">Go to dropoff</string>
+    <string name="trip_mark_arrived_at_pickup">Mark Arrived at Pickup</string>
+    <string name="trip_cancel">Cancel Trip</string>
+    <!-- Label for a save button [CHAR_LIMIT=50] -->
+    <string name="save_label">Save</string>
+    <!-- Label for a cancel button [CHAR_LIMIT=50] -->
+    <string name="cancel_label">Cancel</string>
+
+    <!-- Key for driver app shared preferences. [CHAR_LIMIT=NONE] -->
+    <string name="shared_preference_key">demoappdriver</string>
+
+    <!-- Key for vehicle id on shared preferences. [CHAR_LIMIT=NONE] -->
+    <string name="vehicle_id_preference_key">vehicle_id</string>
+
+    <string-array name="vehicle_types_array">
+        <item>Auto</item>
+        <item>Taxi</item>
+        <item>Truck</item>
+        <item>TwoWheeler</item>
+    </string-array>
+
+    <string-array name="vehicle_capacities_array">
+        <item> 1 </item>
+        <item> 2 </item>
+        <item> 3 </item>
+        <item> 4 </item>
+        <item> 5 </item>
+        <item> 6 </item>
+    </string-array>
+</resources>

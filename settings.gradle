@@ -1,4 +1,4 @@
-/* Copyright 2020 Google LLC
+/* Copyright 2022 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,4 +14,6 @@
  */
 include 'java:consumer'
 include 'java:driver'
+include 'kotlin:kotlin-consumer'
+include 'kotlin:kotlin-driver'
 rootProject.name = "On-demand rides and deliveries samples"

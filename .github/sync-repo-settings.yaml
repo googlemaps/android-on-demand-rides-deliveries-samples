@@ -24,7 +24,6 @@ branchProtectionRules:
   requiresStrictStatusChecks: false
   requiredStatusCheckContexts:
     - 'cla/google'
-    - 'test'
     - 'snippet-bot check'
     - 'header-check'
   requiredApprovingReviewCount: 1
@@ -34,7 +33,6 @@ branchProtectionRules:
   requiresStrictStatusChecks: false
   requiredStatusCheckContexts:
     - 'cla/google'
-    - 'test'
     - 'snippet-bot check'
     - 'header-check'
   requiredApprovingReviewCount: 1

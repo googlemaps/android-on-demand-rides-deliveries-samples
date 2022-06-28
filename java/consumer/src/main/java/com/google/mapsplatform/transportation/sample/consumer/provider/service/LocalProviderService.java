@@ -18,9 +18,9 @@ import com.google.android.libraries.mapsplatform.transportation.consumer.model.T
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.mapsplatform.transportation.sample.consumer.provider.model.CreateTripRequest;
 import com.google.mapsplatform.transportation.sample.consumer.provider.model.TripData;
 import com.google.mapsplatform.transportation.sample.consumer.provider.model.TripStatus;
-import com.google.mapsplatform.transportation.sample.consumer.provider.model.WaypointData;
 import com.google.mapsplatform.transportation.sample.consumer.provider.response.GetTripResponse;
 import com.google.mapsplatform.transportation.sample.consumer.provider.response.TokenResponse;
 import com.google.mapsplatform.transportation.sample.consumer.provider.response.TripResponse;
@@ -53,8 +53,8 @@ public class LocalProviderService {
     this.scheduledExecutor = scheduledExecutor;
   }
 
-  public ListenableFuture<TripResponse> createSingleExclusiveTrip(WaypointData waypoint) {
-    return provider.createSingleExclusiveTrip(waypoint);
+  public ListenableFuture<TripResponse> createTrip(CreateTripRequest createTripRequest) {
+    return provider.createTrip(createTripRequest);
   }
 
   public ListenableFuture<TokenResponse> fetchAuthToken(String tripId) {

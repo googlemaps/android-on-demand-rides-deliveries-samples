@@ -20,24 +20,13 @@ import com.google.gson.annotations.SerializedName;
 public class GetTripResponse {
 
   @SerializedName("trip")
-  private TripData trip;
+  private TripModel trip;
 
-  @SerializedName("routeToken")
-  private String routeToken;
-
-  public TripData getTripData() {
+  public TripModel getTripModel() {
     return trip;
   }
 
-  public void setTripData(TripData trip) {
+  public void setTripModel(TripModel trip) {
     this.trip = trip;
-  }
-
-  public String getRouteToken() {
-    return routeToken;
-  }
-
-  public void setRouteToken(String routeToken) {
-    this.routeToken = routeToken;
   }
 }

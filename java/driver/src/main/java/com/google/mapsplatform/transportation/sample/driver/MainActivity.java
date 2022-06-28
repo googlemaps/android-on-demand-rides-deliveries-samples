@@ -34,12 +34,15 @@ import com.google.android.libraries.navigation.NavigationApi;
 import com.google.android.libraries.navigation.Navigator;
 import com.google.android.libraries.navigation.SupportNavigationFragment;
 import com.google.android.material.snackbar.Snackbar;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mapsplatform.transportation.sample.driver.dialog.VehicleDialogFragment;
 import com.google.mapsplatform.transportation.sample.driver.state.TripStatus;
 import java.net.ConnectException;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -60,7 +63,7 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
   private SupportNavigationFragment navFragment;
   private TextView simulationStatusText;
   private TextView tripIdText;
-  private TextView nextTripIdText;
+  private TextView matchedTripIdsText;
   private TextView textVehicleId;
   private Button actionButton;
   private CardView tripCard;
@@ -78,7 +81,7 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
     editVehicleIdButton.setOnClickListener(this::onEditVehicleButtonClicked);
     tripCard = findViewById(R.id.trip_card);
     tripIdText = findViewById(R.id.trip_id_label);
-    nextTripIdText = findViewById(R.id.next_trip_id_label);
+    matchedTripIdsText = findViewById(R.id.matched_trip_ids_label);
     textVehicleId = findViewById(R.id.menu_vehicle_id);
     textVehicleId.setText(vehicleIdStore.readOrDefault());
     setupNavFragment();
@@ -86,7 +89,8 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
     actionButton.setOnClickListener(this::onActionButtonClicked);
 
     showTripId(VehicleController.NO_TRIP_ID);
-    showNextTripId(VehicleController.NO_TRIP_ID);
+    showMatchedTripIds(ImmutableList.of());
+
     // Ensure the screen stays on during navigation.
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
@@ -158,11 +162,14 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
     VehicleDialogFragment fragment =
         VehicleDialogFragment.newInstance(
             vehicleIdStore.readOrDefault(),
-            vehicleId -> {
-              textVehicleId.setText(vehicleId);
-              vehicleIdStore.save(vehicleId);
-              vehicleController.initVehicleAndReporter((Application) getApplicationContext());
+            vehicleController.getVehicleSettings(),
+            updatedVehicleSettings -> {
+              textVehicleId.setText(updatedVehicleSettings.getVehicleId());
+
+              vehicleController.updateVehicleSettings(
+                  (Application) getApplicationContext(), updatedVehicleSettings);
             });
+
     fragment.show(getSupportFragmentManager(), "VehicleInfoDialog");
   }
 
@@ -199,14 +206,21 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
   }
 
   @Override
-  public void showNextTripId(String tripId) {
-    if (tripId.equals(VehicleController.NO_TRIP_ID)) {
-      nextTripIdText.setVisibility(View.GONE);
+  public void showMatchedTripIds(List<String> tripIds) {
+    matchedTripIdsText.setVisibility(View.VISIBLE);
+
+    if (tripIds.isEmpty()) {
+      String noTripFoundText = getResources().getString(R.string.status_unknown);
+
+      matchedTripIdsText.setText(
+          getResources().getString(R.string.matched_trip_ids_label, noTripFoundText));
+
       return;
     }
 
-    nextTripIdText.setText(getResources().getString(R.string.next_trip_id_label, tripId));
-    nextTripIdText.setVisibility(View.VISIBLE);
+    String text = Joiner.on(", ").join(tripIds);
+
+    matchedTripIdsText.setText(getResources().getString(R.string.matched_trip_ids_label, text));
   }
 
   @Override
@@ -239,7 +253,7 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
       case ARRIVED_AT_PICKUP:
         simulationStatusText.setText(R.string.status_arrived_at_pickup);
         resourceId =
-            vehicleController.hasIntermediateDestinations()
+            vehicleController.isNextCurrentTripWaypointIntermediate()
                 ? R.string.button_enroute_to_intermediate_stop
                 : R.string.button_enroute_to_dropoff;
         isCameraTilted = true;
@@ -260,7 +274,7 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
       case ARRIVED_AT_INTERMEDIATE_DESTINATION:
         simulationStatusText.setText(R.string.status_arrived_to_intermediate_location);
         resourceId =
-            vehicleController.isOnLastIntermediateDestination()
+            !vehicleController.isNextCurrentTripWaypointIntermediate()
                 ? R.string.button_enroute_to_dropoff
                 : R.string.button_enroute_to_intermediate_stop;
         isCameraTilted = true;
@@ -282,6 +296,11 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
     tripCard.setVisibility(cardVisibility);
     updateActionButton(buttonVisibility, resourceId);
     updateCameraPerspective(isCameraTilted);
+  }
+
+  @Override
+  public void enableActionButton(boolean enabled) {
+    actionButton.setEnabled(enabled);
   }
 
   private static void logNavigationApiInitError(int errorCode) {

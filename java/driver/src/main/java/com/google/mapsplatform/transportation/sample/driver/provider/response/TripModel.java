@@ -15,10 +15,9 @@
 package com.google.mapsplatform.transportation.sample.driver.provider.response;
 
 import com.google.gson.annotations.SerializedName;
-import com.google.mapsplatform.transportation.sample.driver.config.DriverTripConfig.Waypoint;
 
 /** Non-extensive POJO representation of a Trip response object. */
-public class TripData {
+public class TripModel {
 
   @SerializedName("name")
   private String name;

@@ -18,20 +18,18 @@ import android.location.Location;
 import android.util.Log;
 import com.google.android.libraries.navigation.RoadSnappedLocationProvider;
 import com.google.android.libraries.navigation.RoadSnappedLocationProvider.LocationListener;
-import com.google.common.base.Splitter;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.mapsplatform.transportation.sample.driver.config.DriverTripConfig;
-import com.google.mapsplatform.transportation.sample.driver.config.DriverTripConfig.Point;
-import com.google.mapsplatform.transportation.sample.driver.provider.request.CreateVehicleBody;
 import com.google.mapsplatform.transportation.sample.driver.provider.request.TripUpdateBody;
+import com.google.mapsplatform.transportation.sample.driver.provider.request.VehicleSettings;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.GetTripResponse;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.TokenResponse;
-import com.google.mapsplatform.transportation.sample.driver.provider.response.TripData;
-import com.google.mapsplatform.transportation.sample.driver.provider.response.VehicleResponse;
-import java.util.List;
+import com.google.mapsplatform.transportation.sample.driver.provider.response.TripModel;
+import com.google.mapsplatform.transportation.sample.driver.provider.response.VehicleModel;
+import com.google.mapsplatform.transportation.sample.driver.provider.response.Waypoint.Point;
 import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
 import retrofit2.Retrofit;
@@ -41,12 +39,6 @@ import retrofit2.converter.gson.GsonConverterFactory;
 /** Communicates with stub local provider. */
 public class LocalProviderService {
   private static final String TAG = "LocalProviderService";
-
-  /** String splitter for a slash. */
-  private static final Splitter SPLITTER = Splitter.on('/');
-
-  /** Index of a project id on trip name that has been split. */
-  private static final int PROJECT_ID_INDEX = 1;
 
   private final RestProvider restProvider;
   private final Executor executor;
@@ -79,7 +71,7 @@ public class LocalProviderService {
    *
    * @param vehicleId vehicle id to be registered.
    */
-  public ListenableFuture<VehicleResponse> registerVehicle(String vehicleId) {
+  public ListenableFuture<VehicleModel> registerVehicle(String vehicleId) {
     return fetchOrCreateVehicle(vehicleId);
   }
 
@@ -112,14 +104,42 @@ public class LocalProviderService {
     updateTrip(tripId, updateBody);
   }
 
+  /**
+   * Creates or updates a 'Vehicle' in the sample provider based on the given settings.
+   *
+   * @param vehicleSettings the settings to use while creating/updating the vehicle.
+   * @return Future that resolves to the updated 'VehicleModel'.
+   */
+  public ListenableFuture<VehicleModel> createOrUpdateVehicle(VehicleSettings vehicleSettings) {
+    SettableFuture<VehicleModel> resultFuture = SettableFuture.create();
+
+    Futures.addCallback(
+        restProvider.getVehicle(vehicleSettings.getVehicleId()),
+        new FutureCallback<VehicleModel>() {
+          @Override
+          public void onSuccess(VehicleModel vehicle) {
+            resultFuture.setFuture(
+                restProvider.updateVehicle(vehicleSettings.getVehicleId(), vehicleSettings));
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            resultFuture.setFuture(restProvider.createVehicle(vehicleSettings));
+          }
+        },
+        executor);
+
+    return resultFuture;
+  }
+
   private void updateTrip(String tripId, TripUpdateBody updateBody) {
-    ListenableFuture<TripData> future = restProvider.updateTrip(tripId, updateBody);
+    ListenableFuture<TripModel> future = restProvider.updateTrip(tripId, updateBody);
 
     Futures.addCallback(
         future,
-        new FutureCallback<TripData>() {
+        new FutureCallback<TripModel>() {
           @Override
-          public void onSuccess(TripData tripData) {
+          public void onSuccess(TripModel tripModel) {
             Log.i(
                 TAG,
                 String.format(
@@ -138,27 +158,27 @@ public class LocalProviderService {
   }
 
   /** Fetches a vehicle identified by 'vehicleId' from the sample provider service. */
-  public ListenableFuture<VehicleResponse> fetchVehicle(String vehicleId) {
+  public ListenableFuture<VehicleModel> fetchVehicle(String vehicleId) {
     return restProvider.getVehicle(vehicleId);
   }
 
-  private ListenableFuture<VehicleResponse> fetchOrCreateVehicle(String vehicleId) {
-    SettableFuture<VehicleResponse> resultFuture = SettableFuture.create();
-    ListenableFuture<VehicleResponse> responseFuture = restProvider.getVehicle(vehicleId);
+  private ListenableFuture<VehicleModel> fetchOrCreateVehicle(String vehicleId) {
+    SettableFuture<VehicleModel> resultFuture = SettableFuture.create();
+    ListenableFuture<VehicleModel> responseFuture = restProvider.getVehicle(vehicleId);
     Futures.addCallback(
         responseFuture,
-        new FutureCallback<VehicleResponse>() {
+        new FutureCallback<VehicleModel>() {
           @Override
-          public void onSuccess(VehicleResponse vehicleResponse) {
-            resultFuture.set(vehicleResponse);
+          public void onSuccess(VehicleModel vehicleModel) {
+            resultFuture.set(vehicleModel);
           }
 
           @Override
           public void onFailure(Throwable t) {
-            CreateVehicleBody createVehicleBody = new CreateVehicleBody();
-            createVehicleBody.setVehicleId(vehicleId);
-            createVehicleBody.setBackToBackEnabled(true);
-            resultFuture.setFuture(restProvider.createVehicle(createVehicleBody));
+            VehicleSettings vehicleSettings = new VehicleSettings();
+            vehicleSettings.setVehicleId(vehicleId);
+
+            resultFuture.setFuture(restProvider.createVehicle(vehicleSettings));
           }
         },
         executor);
@@ -185,19 +205,13 @@ public class LocalProviderService {
     return Futures.transform(
         availableTripFuture,
         availableTripResponse -> {
-          TripData availableTrip = availableTripResponse.getTripData();
-          String tripName = availableTrip.getName();
-          // Expects trip name to be on format providers/<projectId>/trips/<tripId>
-          List<String> parts = SPLITTER.splitToList(tripName);
-          String projectId = parts.get(PROJECT_ID_INDEX);
+          TripModel availableTrip = availableTripResponse.getTripModel();
 
           DriverTripConfig config = new DriverTripConfig();
 
           config.setTripId(tripId);
           config.setVehicleId(vehicleId);
-          config.setProjectId(projectId);
           config.setWaypoints(availableTrip.getWaypoints());
-          config.setRouteToken(availableTripResponse.getRouteToken());
 
           return config;
         },

@@ -27,23 +27,28 @@ import com.google.android.libraries.mapsplatform.transportation.driver.api.base.
 import com.google.android.libraries.mapsplatform.transportation.driver.api.ridesharing.RidesharingDriverApi;
 import com.google.android.libraries.mapsplatform.transportation.driver.api.ridesharing.vehiclereporter.RidesharingVehicleReporter;
 import com.google.android.libraries.mapsplatform.transportation.driver.api.ridesharing.vehiclereporter.RidesharingVehicleReporter.VehicleState;
+import com.google.android.libraries.navigation.ListenableResultFuture;
 import com.google.android.libraries.navigation.NavigationApi;
 import com.google.android.libraries.navigation.Navigator;
 import com.google.android.libraries.navigation.RoadSnappedLocationProvider;
-import com.google.android.libraries.navigation.Waypoint;
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.mapsplatform.transportation.sample.driver.config.DriverTripConfig;
 import com.google.mapsplatform.transportation.sample.driver.provider.ProviderUtils;
-import com.google.mapsplatform.transportation.sample.driver.provider.response.VehicleResponse;
+import com.google.mapsplatform.transportation.sample.driver.provider.request.VehicleSettings;
+import com.google.mapsplatform.transportation.sample.driver.provider.response.VehicleModel;
+import com.google.mapsplatform.transportation.sample.driver.provider.response.Waypoint;
 import com.google.mapsplatform.transportation.sample.driver.provider.service.LocalProviderService;
 import com.google.mapsplatform.transportation.sample.driver.provider.service.VehicleStateService;
 import com.google.mapsplatform.transportation.sample.driver.state.TripState;
 import com.google.mapsplatform.transportation.sample.driver.state.TripStatus;
+import com.google.mapsplatform.transportation.sample.driver.utils.TripUtils;
 import java.lang.ref.WeakReference;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -95,7 +100,16 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
   private WeakReference<Presenter> presenterRef = new WeakReference<>(null);
 
   private @MonotonicNonNull RidesharingVehicleReporter vehicleReporter;
-  private @Nullable TripState tripState;
+  private @MonotonicNonNull VehicleSettings vehicleSettings;
+
+  private @Nullable Waypoint currentWaypoint;
+  private @Nullable Waypoint nextWaypoint;
+  private @Nullable Waypoint nextWaypointOfCurrentTrip;
+
+  private List<Waypoint> waypoints = ImmutableList.of();
+  private List<String> matchedTripIds = ImmutableList.of();
+
+  private Map<String, TripState> tripStates = new HashMap<>();
 
   public VehicleController(
       Application application,
@@ -121,26 +135,58 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
   }
 
   @Override
-  public void onVehicleStateUpdate(VehicleResponse updatedVehicle) {
-    // No trip loaded but there's a paired trip.
-    if (tripState == null && updatedVehicle.getCurrentTripsIds().size() > 0) {
-      String tripId = updatedVehicle.getCurrentTripsIds().get(0);
+  public void onVehicleStateUpdate(VehicleModel updatedVehicle) {
+    waypoints = updatedVehicle.getWaypoints();
+    matchedTripIds = updatedVehicle.getCurrentTripsIds();
 
-      fetchTrip(tripId);
-      return;
-    }
+    // Reset and recalculate waypoints every server state update.
+    currentWaypoint = null;
+    nextWaypoint = null;
+    nextWaypointOfCurrentTrip = null;
 
-    // There's an ongoing trip and a second trip has been matched (B2B).
-    if (tripState != null && updatedVehicle.getCurrentTripsIds().size() == 2) {
-      String backToBackTripId = updatedVehicle.getCurrentTripsIds().get(1);
-      tripState.setBackToBackTripId(backToBackTripId);
+    if (!waypoints.isEmpty()) {
+      Waypoint updatedNextWaypointOfCurrentTrip = null;
 
-      Presenter presenter = presenterRef.get();
+      for (int index = 0; index < waypoints.size(); index++) {
+        Waypoint waypoint = waypoints.get(index);
 
-      if (presenter != null) {
-        mainExecutor.execute(() -> presenter.showNextTripId(backToBackTripId));
+        Log.i(TAG, String.format("%s %s", waypoint.getTripId(), waypoint.getWaypointType()));
+
+        if (!tripStates.containsKey(waypoint.getTripId())) {
+          acceptTrip(waypoint);
+
+          if (currentWaypoint == null) {
+            updateUiForWaypoint(waypoint);
+            setWaypointDestination(waypoint);
+          }
+        }
+
+        /**
+         * When 'Vehicle' state is updated from the 'Provider', the client needs to update the
+         * current waypoint pointer so the UI can be refreshed accordingly. It also keeps track of
+         * the second/next waypoint for convenience, this is utilized at the moment where the
+         * current waypoint status changes to 'ARRIVED/COMPLETE'.
+         */
+        if (index == 0) {
+          currentWaypoint = waypoint;
+        } else if (index == 1) {
+          nextWaypoint = waypoint;
+        }
+
+        if (index > 0
+            && updatedNextWaypointOfCurrentTrip == null
+            && currentWaypoint.getTripId().equals(waypoint.getTripId())) {
+          updatedNextWaypointOfCurrentTrip = waypoint;
+        }
       }
+
+      nextWaypointOfCurrentTrip = updatedNextWaypointOfCurrentTrip;
+    } else {
+      stopJourneySharing();
     }
+
+    updateUiForWaypoint(currentWaypoint);
+    enableActionButton(true);
   }
 
   /**
@@ -150,17 +196,36 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
    * @return a signal that the async initialization is done, the boolean value can be ignored.
    */
   public ListenableFuture<Boolean> initVehicleAndReporter(Application application) {
+    ListenableFuture<VehicleModel> registerVehicleFuture = initVehicle();
+    return initializeApi(application, registerVehicleFuture);
+  }
+
+  /**
+   * Updates the stored vehicle settings. In case vehicle is updated, a new reporter has to be
+   * instantiated.
+   *
+   * @param application Application instance.
+   * @param vehicleSettings the updated vehicle settings.
+   * @return a signal that the async initialization is done, the boolean value can be ignored.
+   */
+  public ListenableFuture<Boolean> updateVehicleSettings(
+      Application application, VehicleSettings vehicleSettings) {
+    ListenableFuture<VehicleModel> updateVehicleFuture = updateVehicle(vehicleSettings);
+    return initializeApi(application, updateVehicleFuture);
+  }
+
+  private ListenableFuture<Boolean> initializeApi(
+      Application application, ListenableFuture<VehicleModel> vehicleFuture) {
     // If there is a previous instance RidesharingDriverApi (we're updating vehicleId), we clear it
     // to get a fresh one for the new vehicle.
     if (RidesharingDriverApi.getInstance() != null) {
       RidesharingDriverApi.clearInstance();
     }
 
-    ListenableFuture<VehicleResponse> registerVehicleFuture = initVehicle();
     ListenableFuture<Boolean> future =
         Futures.transform(
-            registerVehicleFuture,
-            vehicleResponse -> {
+            vehicleFuture,
+            vehicleModel -> {
               vehicleReporter =
                   RidesharingDriverApi.createInstance(
                           DriverContext.builder(application)
@@ -173,9 +238,17 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
                               .setStatusListener(VehicleController::logLocationUpdate)
                               .build())
                       .getRidesharingVehicleReporter();
+
+              vehicleSettings = new VehicleSettings();
+              vehicleSettings.setVehicleId(extractVehicleId(vehicleModel.getName()));
+              vehicleSettings.setMaximumCapacity(vehicleModel.getMaximumCapacity());
+              vehicleSettings.setSupportedTripTypes(vehicleModel.getSupportedTripTypes());
+              vehicleSettings.setBackToBackEnabled(vehicleModel.getBackToBackEnabled());
+
               return true;
             },
             executor);
+
     Futures.addCallback(
         future,
         new FutureCallback<Boolean>() {
@@ -187,43 +260,44 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
 
           @Override
           public void onFailure(Throwable t) {
-            Log.e(TAG, "initVehicleAndReporter() failed.", t);
+            Log.e(TAG, "initializeApi() failed.", t);
           }
         },
         executor);
+
     return future;
   }
 
-  private void fetchTrip(String tripId) {
-    ListenableFuture<DriverTripConfig> tripConfigFuture =
-        providerService.fetchTrip(tripId, vehicleIdStore.readOrDefault());
+  /** Returns the settings for the active 'Vehicle'. */
+  public VehicleSettings getVehicleSettings() {
+    return requireNonNull(vehicleSettings);
+  }
+
+  /** Creates/Updates a Vehicle with the given settings depending of the provider state. */
+  private ListenableFuture<VehicleModel> updateVehicle(VehicleSettings vehicleSettings) {
+    ListenableFuture<VehicleModel> vehicleModelFuture =
+        providerService.createOrUpdateVehicle(vehicleSettings);
 
     Futures.addCallback(
-        tripConfigFuture,
-        new FutureCallback<DriverTripConfig>() {
+        vehicleModelFuture,
+        new FutureCallback<VehicleModel>() {
           @Override
-          public void onSuccess(DriverTripConfig tripConfig) {
-            sequentialExecutor.execute(
-                () -> {
-                  tripState = new TripState(tripConfig);
-                  tripState.setTripMatchedState();
-                  updateServerAndUiTripState();
-                });
-
-            Presenter presenter = presenterRef.get();
-            if (presenter != null) {
-              mainExecutor.execute(
-                  () -> {
-                    presenter.showTripId(tripConfig.getTripId());
-                    presenter.showTripStatus(TripStatus.NEW);
-                  });
-            }
+          public void onSuccess(VehicleModel vehicleModel) {
+            vehicleIdStore.save(extractVehicleId(vehicleModel.getName()));
           }
 
           @Override
-          public void onFailure(Throwable t) {}
+          public void onFailure(Throwable t) {
+            Log.e(TAG, "updateVehicle() failed.", t);
+          }
         },
         executor);
+
+    return vehicleModelFuture;
+  }
+
+  private void acceptTrip(Waypoint tripWaypoint) {
+    updateTripStatusInServer(TripUtils.getInitialTripState(tripWaypoint.getTripId()));
   }
 
   /** Cleans up active resources prior to activity onDestroy, mainly to prevent memory leaks. */
@@ -249,22 +323,26 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
   }
 
   /** Initialize a vehicle. */
-  private ListenableFuture<VehicleResponse> initVehicle() {
-    ListenableFuture<VehicleResponse> registerVehicleFuture =
+  private ListenableFuture<VehicleModel> initVehicle() {
+    ListenableFuture<VehicleModel> vehicleModelFuture =
         providerService.registerVehicle(vehicleIdStore.readOrDefault());
+
     Futures.addCallback(
-        registerVehicleFuture,
-        new FutureCallback<VehicleResponse>() {
+        vehicleModelFuture,
+        new FutureCallback<VehicleModel>() {
           @Override
-          public void onSuccess(VehicleResponse vehicleResponse) {
-            vehicleIdStore.save(extractVehicleId(vehicleResponse.getName()));
+          public void onSuccess(VehicleModel vehicleModel) {
+            vehicleIdStore.save(extractVehicleId(vehicleModel.getName()));
           }
 
           @Override
-          public void onFailure(Throwable t) {}
+          public void onFailure(Throwable t) {
+            Log.e(TAG, "initVehicle() failed.", t);
+          }
         },
         executor);
-    return registerVehicleFuture;
+
+    return vehicleModelFuture;
   }
 
   private void setVehicleOnline() {
@@ -281,43 +359,120 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
     // accessed in multiple threads.
     sequentialExecutor.execute(
         () -> {
-          if (tripState == null) {
-            return;
+          String tripId = currentWaypoint.getTripId();
+
+          TripState previousTripState = tripStates.get(tripId);
+          TripState updatedTripState =
+              TripUtils.getNextTripState(previousTripState, nextWaypointOfCurrentTrip);
+
+          updateTripStatusInServer(updatedTripState);
+
+          if (updatedTripState.tripStatus() == TripStatus.ARRIVED_AT_PICKUP
+              || updatedTripState.tripStatus() == TripStatus.ARRIVED_AT_INTERMEDIATE_DESTINATION
+              || updatedTripState.tripStatus() == TripStatus.COMPLETE) {
+            advanceNextWaypointsOnArrival();
           }
 
-          tripState.processNextState();
-          updateServerAndUiTripState();
+          updateNavigationForWaypoints(updatedTripState);
+          enableActionButton(false);
+
+          Log.i(
+              TAG,
+              String.format(
+                  "Previous trip status: %s Current trip status: %s",
+                  previousTripState.tripStatus(), updatedTripState.tripStatus()));
         });
   }
 
-  /**
-   * Takes current trip 'Status' and updates it in the server. Depending on the status, it might
-   * also update 'intermediateDestinationIndex' (multi-destination support). Then, it updates the UI
-   * (via the Presenter) to reflect the update.
-   */
-  private void updateServerAndUiTripState() {
-    TripStatus updatedStatus =
-        tripState != null ? tripState.getStatus() : TripStatus.UNKNOWN_TRIP_STATUS;
+  private void updateNavigationForWaypoints(TripState updatedCurrentTripState) {
+    switch (updatedCurrentTripState.tripStatus()) {
+      case ENROUTE_TO_PICKUP:
+        startJourneySharing();
+        navigateToWaypoint(currentWaypoint);
+        break;
 
-    if (updatedStatus != TripStatus.UNKNOWN_TRIP_STATUS) {
-      if (updatedStatus == TripStatus.ENROUTE_TO_INTERMEDIATE_DESTINATION) {
-        providerService.updateTripStatusWithIntermediateDestinationIndex(
-            tripState.getTripId(), updatedStatus.toString(), tripState.getWaypointIndex() - 1);
-      } else {
-        providerService.updateTripStatus(tripState.getTripId(), updatedStatus.toString());
-      }
+      case ARRIVED_AT_PICKUP:
+      case ARRIVED_AT_INTERMEDIATE_DESTINATION:
+      case COMPLETE:
+        if (nextWaypoint != null) {
+          navigateToWaypoint(nextWaypoint);
+        }
+
+      default:
+        break;
+    }
+  }
+
+  private void advanceNextWaypointsOnArrival() {
+    if (nextWaypoint == null) {
+      return;
     }
 
-    mainExecutor.execute(
-        () -> {
-          Presenter presenter = presenterRef.get();
-          if (presenter == null) {
-            return;
-          }
-          presenter.showTripStatus(updatedStatus);
-        });
+    TripState updatedStateForNextWaypoint =
+        TripUtils.getEnrouteStateForWaypoint(
+            nextWaypoint, tripStates.get(nextWaypoint.getTripId()));
 
-    updateVehicleByTripStatus(updatedStatus);
+    updateTripStatusInServer(updatedStateForNextWaypoint);
+
+    if (nextWaypoint.getTripId().equals(currentWaypoint.getTripId())
+        || nextWaypointOfCurrentTrip == null) {
+      return;
+    }
+
+    TripState updatedStateForNextWaypointOfCurrentTrip =
+        TripUtils.getEnrouteStateForWaypoint(
+            nextWaypointOfCurrentTrip, tripStates.get(nextWaypointOfCurrentTrip.getTripId()));
+
+    updateTripStatusInServer(updatedStateForNextWaypointOfCurrentTrip);
+  }
+
+  private void enableActionButton(boolean enabled) {
+    Presenter presenter = presenterRef.get();
+
+    if (presenter != null) {
+      mainExecutor.execute(() -> presenter.enableActionButton(enabled));
+    }
+  }
+
+  private void updateUiForWaypoint(Waypoint waypoint) {
+    Presenter presenter = presenterRef.get();
+
+    if (presenter != null) {
+      mainExecutor.execute(
+          () -> {
+            if (waypoint == null) {
+              presenter.showTripId(NO_TRIP_ID);
+              presenter.showTripStatus(TripStatus.UNKNOWN_TRIP_STATUS);
+              presenter.showMatchedTripIds(ImmutableList.of());
+              return;
+            }
+
+            TripState tripState = tripStates.get(waypoint.getTripId());
+
+            presenter.showTripId(tripState.tripId());
+            presenter.showTripStatus(tripState.tripStatus());
+            presenter.showMatchedTripIds(matchedTripIds);
+          });
+    }
+  }
+
+  private void updateTripStatusInServer(TripState updatedState) {
+    tripStates.put(updatedState.tripId(), updatedState);
+
+    TripStatus updatedStatus = updatedState.tripStatus();
+
+    if (updatedStatus == TripStatus.UNKNOWN_TRIP_STATUS) {
+      return;
+    }
+
+    if (updatedStatus == TripStatus.ENROUTE_TO_INTERMEDIATE_DESTINATION) {
+      providerService.updateTripStatusWithIntermediateDestinationIndex(
+          updatedState.tripId(),
+          updatedStatus.toString(),
+          updatedState.intermediateDestinationIndex());
+    } else {
+      providerService.updateTripStatus(updatedState.tripId(), updatedStatus.toString());
+    }
   }
 
   /** Sets presenter to the controller so it can invokes UI related callbacks. */
@@ -325,50 +480,10 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
     presenterRef = new WeakReference<>(presenter);
   }
 
-  /**
-   * Updates Vehicle state (navigator waypoint, simulator, journey sharing) based on the given trip
-   * status.
-   */
-  private void updateVehicleByTripStatus(TripStatus status) {
-    TripState currentTripState = requireNonNull(tripState);
-
-    switch (status) {
-      case UNKNOWN_TRIP_STATUS:
-        vehicleSimulator.pause();
-        break;
-
-      case NEW:
-        setNextWaypointOnNavigator();
-        vehicleSimulator.setLocation(currentTripState.getInitialVehicleLocation());
-        break;
-
-      case ENROUTE_TO_PICKUP:
-      case ENROUTE_TO_DROPOFF:
-      case ENROUTE_TO_INTERMEDIATE_DESTINATION:
-        startJourneySharing();
-        vehicleSimulator.start(SIMULATOR_SPEED_MULTIPLIER);
-        break;
-
-      case ARRIVED_AT_PICKUP:
-      case ARRIVED_AT_INTERMEDIATE_DESTINATION:
-        stopJourneySharing();
-        setNextWaypointOnNavigator();
-        break;
-
-      case COMPLETE:
-      case CANCELED:
-        stopJourneySharing();
-        vehicleSimulator.unsetLocation();
-        onTripFinishedOrCancelled();
-        break;
-    }
-  }
-
   // Starts simulating journey sharing. Reduces the update interval.
   private void startJourneySharing() {
     requireNonNull(vehicleReporter)
         .setLocationReportingInterval(JOURNEY_SHARING_LOCATION_UPDATE_INTERVAL_SECONDS, SECONDS);
-    navigator.startGuidance();
   }
 
   // Stops journey sharing by turning off guidance and reducing the location reporting frequency.
@@ -377,6 +492,21 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
         .setLocationReportingInterval(DEFAULT_LOCATION_UPDATE_INTERVAL_SECONDS, SECONDS);
     navigator.stopGuidance();
     navigator.clearDestinations();
+
+    vehicleSimulator.unsetLocation();
+  }
+
+  private void setWaypointDestination(Waypoint waypoint) {
+    com.google.android.libraries.navigation.Waypoint destinationWaypoint =
+        com.google.android.libraries.navigation.Waypoint.builder()
+            .setLatLng(
+                waypoint.getLocation().getPoint().getLatitude(),
+                waypoint.getLocation().getPoint().getLongitude())
+            .setTitle(waypoint.getWaypointType())
+            .build();
+
+    // If the loaded trip has a 'routeToken' generated it would be set to NavSDK here.
+    navigator.setDestination(destinationWaypoint);
   }
 
   /**
@@ -384,91 +514,59 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
    * destination to it.
    */
   @SuppressWarnings("FutureReturnValueIgnored")
-  private void setNextWaypointOnNavigator() {
-    TripState currentTripState = requireNonNull(tripState);
-
-    int waypointIndex = currentTripState.getWaypointIndex();
-
-    DriverTripConfig.Waypoint waypoint = tripState.getWaypoints()[waypointIndex + 1];
-
+  private void navigateToWaypoint(Waypoint waypoint) {
     if (waypoint == null) {
+      navigator.stopGuidance();
       return;
     }
 
-    Waypoint destinationWaypoint =
-        Waypoint.builder()
-            .setLatLng(
-                waypoint.getLocation().getPoint().getLatitude(),
-                waypoint.getLocation().getPoint().getLongitude())
-            .setTitle(waypoint.getWaypointType())
-            .build();
+    ListenableResultFuture<Navigator.RouteStatus> pendingRoute =
+        navigator.setDestination(
+            com.google.android.libraries.navigation.Waypoint.builder()
+                .setLatLng(
+                    waypoint.getLocation().getPoint().getLatitude(),
+                    waypoint.getLocation().getPoint().getLongitude())
+                .setTitle(waypoint.getWaypointType())
+                .build());
 
-    navigator.setDestinations(Lists.newArrayList(destinationWaypoint), tripState.getRouteToken());
-  }
+    pendingRoute.setOnResultListener(
+        new ListenableResultFuture.OnResultListener<Navigator.RouteStatus>() {
+          @Override
+          public void onResult(Navigator.RouteStatus code) {
+            switch (code) {
+              case OK:
+                navigator.startGuidance();
+                vehicleSimulator.start(SIMULATOR_SPEED_MULTIPLIER);
+                break;
 
-  // Returns true if current trip has intermediate destinations (multi-destination support).
-  public boolean hasIntermediateDestinations() {
-    return requireNonNull(tripState).hasIntermediateDestinations();
-  }
-
-  // Returns true if driver is on the last intermediate destination (and hence, dropoff is next).
-  public boolean isOnLastIntermediateDestination() {
-    return requireNonNull(tripState).isOnLastIntermediateDestination();
-  }
-
-  private void onTripFinishedWithBackToBack() {
-    // Trip has already been reset.
-    if (tripState == null) {
-      return;
-    }
-
-    String backToBackTripId = tripState.getBackToBackTripId();
-    showTripIds(backToBackTripId, NO_TRIP_ID);
-
-    tripState = null;
-
-    fetchTrip(backToBackTripId);
-  }
-
-  private void showTripIds(String currentTripId, String nextTripId) {
-    Presenter presenter = presenterRef.get();
-    if (presenter == null) {
-      return;
-    }
-
-    mainExecutor.execute(
-        () -> {
-          presenter.showTripId(currentTripId);
-          presenter.showNextTripId(nextTripId);
+              case NO_ROUTE_FOUND:
+              case NETWORK_ERROR:
+              case ROUTE_CANCELED:
+              default:
+                Log.e(TAG, "Failed to set a route to next waypoint");
+                break;
+            }
+          }
         });
   }
 
-  @SuppressWarnings("FutureReturnValueIgnored")
-  private void onTripFinishedOrCancelled() {
-    // Trip has already been reset.
-    if (tripState == null) {
-      return;
-    }
-
-    if (!tripState.getBackToBackTripId().isEmpty()) {
-      onTripFinishedWithBackToBack();
-      return;
-    }
-
-    showTripIds("No trip assigned", NO_TRIP_ID);
-
-    scheduledExecutor.schedule(
-        () -> {
-          tripState = null;
-          updateServerAndUiTripState();
-        },
-        ON_TRIP_FINISHED_DELAY_SECONDS,
-        SECONDS);
+  // Returns true if current trip has intermediate destinations (multi-destination support).
+  public boolean isNextCurrentTripWaypointIntermediate() {
+    return nextWaypointOfCurrentTrip != null
+        && nextWaypointOfCurrentTrip
+            .getWaypointType()
+            .equals(TripUtils.INTERMEDIATE_DESTINATION_WAYPOINT_TYPE);
   }
 
   private static void logLocationUpdate(
       StatusLevel statusLevel, StatusCode statusCode, String statusMsg) {
-    Log.i("STATUS", statusLevel + " " + statusCode + ": " + statusMsg);
+    String message = "Location update: " + statusLevel + " " + statusCode + ": " + statusMsg;
+
+    if (statusLevel == StatusLevel.ERROR) {
+      Log.e(TAG, message);
+    } else {
+      Log.i(TAG, message);
+    }
   }
 
   private static String extractVehicleId(String vehicleName) {

@@ -35,9 +35,9 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mapsplatform.transportation.sample.consumer.provider.ProviderUtils;
+import com.google.mapsplatform.transportation.sample.consumer.provider.model.CreateTripRequest;
 import com.google.mapsplatform.transportation.sample.consumer.provider.model.TripData;
 import com.google.mapsplatform.transportation.sample.consumer.provider.model.TripStatus;
-import com.google.mapsplatform.transportation.sample.consumer.provider.model.WaypointData;
 import com.google.mapsplatform.transportation.sample.consumer.provider.response.TripResponse;
 import com.google.mapsplatform.transportation.sample.consumer.provider.response.WaypointResponse;
 import com.google.mapsplatform.transportation.sample.consumer.provider.service.LocalProviderService;
@@ -108,10 +108,13 @@ public class ConsumerViewModel extends AndroidViewModel {
   // The current active trip, meant for create journey sharing session and observe session.
   private final MutableLiveData<TripModel> trip = new MutableLiveData<>();
 
-  // LiveData containing a potential list of waypoints the driver is going through before the
-  // current trip (B2B)
-  private final MutableLiveData<ImmutableList<TripWaypoint>> previousTripWaypoints =
-      new MutableLiveData<>();
+  // LiveData of the 'Trip shared' switch value.
+  private final MutableLiveData<Boolean> isSharedTripType = new MutableLiveData<>();
+
+  // LiveData containing a potential list of waypoints the driver is going through getting to the
+  // next current trip waypoint (B2B or Shared pool).
+  private final MutableLiveData<ImmutableList<TripWaypoint>> otherTripWaypoints =
+      new MutableLiveData<>(ImmutableList.of());
 
   // Latest error message.
   private final SingleLiveEvent<Integer> errorMessage = new SingleLiveEvent<>();
@@ -141,21 +144,25 @@ public class ConsumerViewModel extends AndroidViewModel {
   }
 
   /** Creates a trip in the sample provider. */
-  public void startSingleExclusiveTrip() {
-    ListenableFuture<TripResponse> singleExclusiveTrip =
-        providerService.createSingleExclusiveTrip(
-            createWaypointData(
-                pickupLocation.getValue(),
-                dropoffLocation.getValue(),
-                intermediateDestinations.getValue()));
+  public void createTrip() {
+    String tripType =
+        isSharedTripType.getValue() != null && isSharedTripType.getValue() ? "SHARED" : "EXCLUSIVE";
 
-    handleCreateSingleExclusiveTripResponse(singleExclusiveTrip);
+    CreateTripRequest request = new CreateTripRequest();
+
+    request.setPickup(pickupLocation.getValue());
+    request.setDropoff(dropoffLocation.getValue());
+    request.setIntermediateDestinations(intermediateDestinations.getValue());
+    request.setTripType(tripType);
+
+    ListenableFuture<TripResponse> tripResponseFuture = providerService.createTrip(request);
+
+    handleCreateTripResponse(tripResponseFuture);
   }
 
-  private void handleCreateSingleExclusiveTripResponse(
-      ListenableFuture<TripResponse> singleExclusiveTrip) {
+  private void handleCreateTripResponse(ListenableFuture<TripResponse> tripResponseFuture) {
     Futures.addCallback(
-        singleExclusiveTrip,
+        tripResponseFuture,
         new FutureCallback<TripResponse>() {
           @Override
           public void onSuccess(TripResponse result) {
@@ -256,6 +263,10 @@ public class ConsumerViewModel extends AndroidViewModel {
     this.journeySharingListener = new WeakReference<>(journeySharingListener);
   }
 
+  public void setIsSharedTripType(boolean isShared) {
+    isSharedTripType.setValue(isShared);
+  }
+
   /** Set the app state. */
   public void setState(@AppStates int state) {
     appState.setValue(state);
@@ -277,13 +288,18 @@ public class ConsumerViewModel extends AndroidViewModel {
     return tripInfo != null && !Strings.isNullOrEmpty(tripInfo.getVehicleId());
   }
 
-  /**
-   * Checks if the next waypoint is part of the current user trip (if not, driver might be dropping
-   * someone else as part of a B2B trip). Only call when there's a trip assigned.
-   */
-  public boolean isDriverCompletingAnotherTrip() {
-    return getPreviousTripWaypoints().getValue() != null
-        && !getPreviousTripWaypoints().getValue().isEmpty();
+  /** Determines if the driver is currently working on another trip's waypoint. */
+  public boolean isDriverInOtherTripWaypoint() {
+    return !getOtherTripWaypoints().getValue().isEmpty();
+  }
+
+  /** Gets the current waypoint type when driver is currently working on another trip. */
+  public @TripWaypoint.WaypointType int getOtherTripWaypointType() {
+    if (!isDriverInOtherTripWaypoint()) {
+      return TripWaypoint.WaypointType.UNKNOWN;
+    }
+
+    return getOtherTripWaypoints().getValue().get(0).getWaypointType();
   }
 
   /** Returns the current trip {@link Trip.TripStatus} for each status change during the trip. */
@@ -306,9 +322,9 @@ public class ConsumerViewModel extends AndroidViewModel {
     return tripId;
   }
 
-  /** Returns the list of previous trip waypoints (B2B support) */
-  public LiveData<ImmutableList<TripWaypoint>> getPreviousTripWaypoints() {
-    return previousTripWaypoints;
+  /** Returns the list of other trip waypoints (B2B/Shared pool support) */
+  public LiveData<ImmutableList<TripWaypoint>> getOtherTripWaypoints() {
+    return otherTripWaypoints;
   }
 
   /** Updates the location container (pickup or dropoff) given by the current app state. */
@@ -383,18 +399,6 @@ public class ConsumerViewModel extends AndroidViewModel {
     }
   }
 
-  /** Creates a WaypointData object which contains all the locations used to create a trip. */
-  private WaypointData createWaypointData(
-      LatLng pickup, LatLng dropoff, ImmutableList<LatLng> intermediateDestinations) {
-    WaypointData waypoints = new WaypointData();
-
-    waypoints.setDropoff(dropoff);
-    waypoints.setPickup(pickup);
-    waypoints.setIntermediateDestinations(intermediateDestinations);
-
-    return waypoints;
-  }
-
   /** Trip callbacks registered during */
   private final TripModelCallback tripCallback =
       new TripModelCallback() {
@@ -430,7 +434,7 @@ public class ConsumerViewModel extends AndroidViewModel {
         @Override
         public void onTripRemainingWaypointsUpdated(
             TripInfo tripInfo, List<TripWaypoint> waypointList) {
-          ImmutableList.Builder<TripWaypoint> previousTripWaypointsBuilder =
+          ImmutableList.Builder<TripWaypoint> otherTripWaypointsBuilder =
               new ImmutableList.Builder<>();
 
           String currentTripId = TripName.create(tripInfo.getTripName()).getTripId();
@@ -440,10 +444,10 @@ public class ConsumerViewModel extends AndroidViewModel {
               break;
             }
 
-            previousTripWaypointsBuilder.add(tripWaypoint);
+            otherTripWaypointsBuilder.add(tripWaypoint);
           }
 
-          previousTripWaypoints.setValue(previousTripWaypointsBuilder.build());
+          otherTripWaypoints.setValue(otherTripWaypointsBuilder.build());
         }
       };
 

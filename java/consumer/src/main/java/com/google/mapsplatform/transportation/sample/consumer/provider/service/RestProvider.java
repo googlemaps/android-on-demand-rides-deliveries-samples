@@ -15,7 +15,7 @@
 package com.google.mapsplatform.transportation.sample.consumer.provider.service;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.mapsplatform.transportation.sample.consumer.provider.model.WaypointData;
+import com.google.mapsplatform.transportation.sample.consumer.provider.model.CreateTripRequest;
 import com.google.mapsplatform.transportation.sample.consumer.provider.response.GetTripResponse;
 import com.google.mapsplatform.transportation.sample.consumer.provider.response.TokenResponse;
 import com.google.mapsplatform.transportation.sample.consumer.provider.response.TripResponse;
@@ -28,7 +28,7 @@ import retrofit2.http.Path;
 interface RestProvider {
 
   @POST("trip/new")
-  ListenableFuture<TripResponse> createSingleExclusiveTrip(@Body WaypointData waypoint);
+  ListenableFuture<TripResponse> createTrip(@Body CreateTripRequest createTripRequest);
 
   @GET("trip/{tripId}")
   ListenableFuture<GetTripResponse> getTrip(@Path("tripId") String tripId);

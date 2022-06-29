@@ -15,16 +15,20 @@
 package com.google.mapsplatform.transportation.sample.driver;
 
 import com.google.mapsplatform.transportation.sample.driver.state.TripStatus;
+import java.util.List;
 
 /** Presents information on the main page. */
 public interface Presenter {
 
-  /** Show trip ID in the main page. */
+  /** Show current waypoint trip ID in the info panel. */
   void showTripId(String tripId);
 
-  /** Show Next trip ID in the main page. */
-  void showNextTripId(String tripId);
+  /** Show list of trip IDs assigned to the Vehicle. */
+  void showMatchedTripIds(List<String> tripIds);
 
-  /** Show trip status in the main page. */
+  /** Show trip status in the info panel. */
   void showTripStatus(TripStatus status);
+
+  /** Enable/disable action button. */
+  void enableActionButton(boolean enabled);
 }

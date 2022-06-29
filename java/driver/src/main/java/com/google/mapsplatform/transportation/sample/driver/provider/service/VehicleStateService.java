@@ -19,7 +19,7 @@ import com.google.common.util.concurrent.AbstractScheduledService;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.mapsplatform.transportation.sample.driver.provider.response.VehicleResponse;
+import com.google.mapsplatform.transportation.sample.driver.provider.response.VehicleModel;
 import java.lang.ref.WeakReference;
 import java.util.concurrent.TimeUnit;
 
@@ -31,15 +31,12 @@ public final class VehicleStateService extends AbstractScheduledService {
 
   /** Listener for state updates. */
   public interface VehicleStateListener {
-    void onVehicleStateUpdate(VehicleResponse vehicleResponse);
+    void onVehicleStateUpdate(VehicleModel vehicleModel);
   }
 
   private final LocalProviderService localProviderService;
   private final String vehicleId;
   private final WeakReference<VehicleStateListener> listenerRef;
-
-  /** Delay of next process iteration happens after the current one is done. */
-  private static final long DELAY_IN_SECONDS = 10; // 10 seconds
 
   public VehicleStateService(
       LocalProviderService localProviderService, String vehicleId, VehicleStateListener listener) {
@@ -62,13 +59,13 @@ public final class VehicleStateService extends AbstractScheduledService {
   protected void runOneIteration() {
     Log.i("VehicleStateService", "runOneIteration start");
 
-    ListenableFuture<VehicleResponse> responseFuture = localProviderService.fetchVehicle(vehicleId);
+    ListenableFuture<VehicleModel> responseFuture = localProviderService.fetchVehicle(vehicleId);
 
     Futures.addCallback(
         responseFuture,
-        new FutureCallback<VehicleResponse>() {
+        new FutureCallback<VehicleModel>() {
           @Override
-          public void onSuccess(VehicleResponse vehicleResponse) {
+          public void onSuccess(VehicleModel vehicleModel) {
             if (!VehicleStateService.this.isRunning()) {
               return;
             }
@@ -79,10 +76,10 @@ public final class VehicleStateService extends AbstractScheduledService {
               return;
             }
 
-            listener.onVehicleStateUpdate(vehicleResponse);
+            listener.onVehicleStateUpdate(vehicleModel);
 
-            for (String tripID : vehicleResponse.getCurrentTripsIds()) {
-              Log.i("VehicleStateService", String.format("runOneIteration %s", tripID));
+            for (String tripID : vehicleModel.getCurrentTripsIds()) {
+              Log.i("VehicleStateService", String.format("runOneIteration tripId=%s", tripID));
             }
           }
 
@@ -96,7 +93,6 @@ public final class VehicleStateService extends AbstractScheduledService {
 
   @Override
   protected Scheduler scheduler() {
-    return Scheduler.newFixedDelaySchedule(
-        /*initialDelay=*/ 0L, DELAY_IN_SECONDS, TimeUnit.SECONDS);
+    return Scheduler.newFixedDelaySchedule(/*initialDelay=*/ 0L, /*delay=*/ 3L, TimeUnit.SECONDS);
   }
 }

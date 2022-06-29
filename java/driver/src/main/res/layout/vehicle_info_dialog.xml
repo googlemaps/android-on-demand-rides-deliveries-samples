@@ -13,25 +13,79 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<LinearLayout
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context=".VehicleDialogFragment"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:paddingTop="@dimen/dialog_margin"
+    android:paddingBottom="@dimen/dialog_margin"
     android:paddingLeft="@dimen/dialog_margin"
-    android:paddingRight="@dimen/dialog_margin"
-    android:orientation="vertical">
-  <Space
-      android:layout_width="match_parent"
-      android:layout_height="@dimen/dialog_space_height"/>
+    android:paddingRight="@dimen/dialog_margin">
+
   <TextView
+      android:id="@+id/vehicle_id_label"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:text="@string/vehicle_id_text"
-      style="@style/DialogSectionHeaderText"/>
+      style="@style/DialogSectionHeaderText"
+      app:layout_constraintTop_toTopOf="parent" />
   <EditText
       android:id="@+id/vehicle_id"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:layout_marginLeft="@dimen/dialog_margin"/>
+      app:layout_constraintTop_toBottomOf="@+id/vehicle_id_label" />
 
-</LinearLayout>
+  <TextView
+      android:id="@+id/back_to_back_label"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="@string/back_to_back"
+      style="@style/DialogSectionHeaderText"
+      app:layout_constraintTop_toBottomOf="@+id/vehicle_id"
+      android:layout_marginTop="@dimen/dialog_space_height"/>
+  <CheckBox
+      android:id="@+id/back_to_back_checkbox"
+      android:text="@string/enabled"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      app:layout_constraintTop_toBottomOf="@+id/back_to_back_label"/>
+
+  <TextView
+      android:id="@+id/supported_trip_types_label"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="@string/trip_type_text"
+      style="@style/DialogSectionHeaderText"
+      app:layout_constraintTop_toBottomOf="@+id/back_to_back_checkbox"
+      android:layout_marginTop="@dimen/dialog_space_height" />
+  <CheckBox
+      android:id="@+id/trip_type_exclusive"
+      android:text="@string/trip_type_exclusive"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      app:layout_constraintTop_toBottomOf="@+id/supported_trip_types_label"/>
+  <CheckBox
+      android:id="@+id/trip_type_shared"
+      android:text="@string/trip_type_shared"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      app:layout_constraintTop_toBottomOf="@+id/trip_type_exclusive"/>
+
+  <TextView
+      android:id="@+id/vehicle_capacity_label"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="@string/vehicle_capacity_text"
+      style="@style/DialogSectionHeaderText"
+      app:layout_constraintTop_toBottomOf="@+id/trip_type_shared"
+      android:layout_marginTop="@dimen/dialog_space_height"/>
+  <Spinner
+      android:id="@+id/vehicle_capacity_spinner"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      app:layout_constraintTop_toBottomOf="@+id/vehicle_capacity_label"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

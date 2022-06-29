@@ -18,7 +18,7 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.libraries.navigation.Navigator;
 import com.google.android.libraries.navigation.SimulationOptions;
 import com.google.android.libraries.navigation.Simulator;
-import com.google.mapsplatform.transportation.sample.driver.config.DriverTripConfig;
+import com.google.mapsplatform.transportation.sample.driver.provider.response.Waypoint;
 
 /**
  * Commands to simulate the vehicle driving along a route. It interacts with the {@link Navigator}
@@ -33,15 +33,15 @@ class VehicleSimulator {
   }
 
   /** Sets the user location to be used for simulation. */
-  void setLocation(DriverTripConfig.Point location) {
+  void setLocation(Waypoint.Point location) {
     if (location != null) {
       simulator.setUserLocation(new LatLng(location.getLatitude(), location.getLongitude()));
     }
   }
 
   /**
-   * Starts a simulation to the location defined by {@link #setLocation(DriverTripConfig.Point)}
-   * along a route calculated by the Navigator.
+   * Starts a simulation to the location defined by {@link #setLocation(Waypoint.Point)} along a
+   * route calculated by the Navigator.
    */
   void start(float speedMultiplier) {
     simulator.simulateLocationsAlongExistingRoute(

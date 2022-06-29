@@ -10,8 +10,8 @@
     <string name="vehicle_id_label">Vehicle ID:</string>
     <!--Label for Trip Match [CHAR_LIMIT=50] -->
     <string name="trip_id_label" translatable="false">Trip Id: %1$s</string>
-    <!--Label for Next Trip Match [CHAR_LIMIT=50] -->
-    <string name="next_trip_id_label" translatable="false">Next Trip Id: %1$s</string>
+    <!--Label for Matched Trip Ids [CHAR_LIMIT=50] -->
+    <string name="matched_trip_ids_label" translatable="false">Matched Trip Ids: %1$s</string>
     <!-- Unset vehicle status label [CHAR_LIMIT=50] -->
     <string name="unset_vehicle_id">unset vehicle</string>
     <string name="vehicle_state">Vehicle State</string>
@@ -71,6 +71,10 @@
     <string name="trip_type_exclusive">Exclusive</string>
     <!-- Option for shared trip type. [CHAR_LIMIT=NONE] -->
     <string name="trip_type_shared">Shared</string>
+    <!-- Label to indicate state of the 'Back to back' setting. [CHAR_LIMIT=50] -->
+    <string name="back_to_back">Back to Back</string>
+    <!-- Label to indicate a 'Enabled' settings. [CHAR_LIMIT=50] -->
+    <string name="enabled">Enabled</string>
     <!-- Explanatory toast that prompts user to change the vehicle Id if new vehicle creation is required. [CHAR_LIMIT=NONE] -->
     <string name="vehicle_info_modified">Changed unmodifiable vehicle attribute. Set different vehicleId for a new vehicle.</string>
 

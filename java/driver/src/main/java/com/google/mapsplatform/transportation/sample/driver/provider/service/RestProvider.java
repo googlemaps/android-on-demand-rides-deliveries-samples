@@ -15,12 +15,12 @@
 package com.google.mapsplatform.transportation.sample.driver.provider.service;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.mapsplatform.transportation.sample.driver.provider.request.CreateVehicleBody;
 import com.google.mapsplatform.transportation.sample.driver.provider.request.TripUpdateBody;
+import com.google.mapsplatform.transportation.sample.driver.provider.request.VehicleSettings;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.GetTripResponse;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.TokenResponse;
-import com.google.mapsplatform.transportation.sample.driver.provider.response.TripData;
-import com.google.mapsplatform.transportation.sample.driver.provider.response.VehicleResponse;
+import com.google.mapsplatform.transportation.sample.driver.provider.response.TripModel;
+import com.google.mapsplatform.transportation.sample.driver.provider.response.VehicleModel;
 import retrofit2.http.Body;
 import retrofit2.http.GET;
 import retrofit2.http.POST;
@@ -29,7 +29,7 @@ import retrofit2.http.Path;
 
 interface RestProvider {
   @GET("vehicle/{id}")
-  ListenableFuture<VehicleResponse> getVehicle(@Path("id") String vehicle);
+  ListenableFuture<VehicleModel> getVehicle(@Path("id") String vehicle);
 
   @GET("token/driver/{vehicleId}")
   ListenableFuture<TokenResponse> getAuthToken(@Path("vehicleId") String vehicleId);
@@ -38,8 +38,11 @@ interface RestProvider {
   ListenableFuture<GetTripResponse> getAvailableTrip(@Path("tripId") String id);
 
   @POST("vehicle/new")
-  ListenableFuture<VehicleResponse> createVehicle(@Body CreateVehicleBody body);
+  ListenableFuture<VehicleModel> createVehicle(@Body VehicleSettings body);
+
+  @PUT("vehicle/{id}")
+  ListenableFuture<VehicleModel> updateVehicle(@Path("id") String id, @Body VehicleSettings body);
 
   @PUT("trip/{id}")
-  ListenableFuture<TripData> updateTrip(@Path("id") String id, @Body TripUpdateBody body);
+  ListenableFuture<TripModel> updateTrip(@Path("id") String id, @Body TripUpdateBody body);
 }

@@ -30,6 +30,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.Switch;
 import android.widget.TextView;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
@@ -60,7 +61,6 @@ import com.google.android.libraries.mapsplatform.transportation.consumer.view.Co
 import com.google.android.libraries.mapsplatform.transportation.consumer.view.ConsumerGoogleMap.ConsumerMapReadyCallback;
 import com.google.android.libraries.mapsplatform.transportation.consumer.view.ConsumerMapView;
 import com.google.android.material.snackbar.Snackbar;
-import com.google.common.collect.ImmutableList;
 import com.google.mapsplatform.transportation.sample.consumer.provider.ProviderUtils;
 import com.google.mapsplatform.transportation.sample.consumer.provider.model.TripData;
 import com.google.mapsplatform.transportation.sample.consumer.state.AppStates;
@@ -107,6 +107,8 @@ public class SampleAppActivity extends AppCompatActivity
   private View dropoffPin;
   // Pickup pin in the center of the map.
   private View pickupPin;
+  // Prompts if trip to create could be 'Shared'.
+  private Switch isSharedTripTypeSwitch;
   // The reference to the map that is being displayed.
   @MonotonicNonNull private ConsumerGoogleMap googleMap;
   // The last location of the device.
@@ -117,8 +119,9 @@ public class SampleAppActivity extends AppCompatActivity
   private Marker dropoffMarker = null;
   // Array of markers representing intermediate stops during trip preview.
   private final ArrayList<Marker> intermediateStopsMarkers = new ArrayList<Marker>();
-  // Array of markers representing stops that driver has to make before starting the current trip.
-  private final ArrayList<Marker> previousTripStopsMarkers = new ArrayList<Marker>();
+  // Array of markers representing waypoints from other trips that the driver is completing before
+  // getting to the next current trip waypoint.
+  private final ArrayList<Marker> otherTripStopsMarkers = new ArrayList<Marker>();
 
   // ViewModel for the consumer sample app.
   private ConsumerViewModel consumerViewModel;
@@ -317,23 +320,45 @@ public class SampleAppActivity extends AppCompatActivity
     updateMarkerBasedOnState(TerminalLocation.create(cameraLocation));
   }
 
+  /**
+   * Returns a resource identifier which can be used to display trip status when driver is in
+   * another trip waypoint.
+   */
+  private static @StringRes int getOtherRiderStringResourceId(
+      @TripWaypoint.WaypointType int waypointType) {
+    switch (waypointType) {
+      case TripWaypoint.WaypointType.PICKUP:
+        return R.string.state_picking_up_other_rider;
+      case TripWaypoint.WaypointType.DROPOFF:
+        return R.string.state_dropping_off_other_rider;
+      case TripWaypoint.WaypointType.INTERMEDIATE_DESTINATION:
+        return R.string.state_stopping_for_other_rider;
+      default:
+        throw new IllegalArgumentException("Invalid waypoint type.");
+    }
+  }
+
   /** Display the trip status based on the observed trip status. */
   private void displayTripStatus(int status) {
+    if (consumerViewModel.isDriverInOtherTripWaypoint()) {
+      setTripStatusTitle(
+          getOtherRiderStringResourceId(consumerViewModel.getOtherTripWaypointType()));
+
+      actionButton.setVisibility(View.INVISIBLE);
+      isSharedTripTypeSwitch.setVisibility(View.GONE);
+      return;
+    }
+
     switch (status) {
       case TripStatus.NEW:
         if (consumerViewModel.isTripMatched()
             && consumerViewModel.getTripInfo().getValue().getNextWaypoint() != null) {
-          int titleId =
-              // Dropping someone else as part of a B2B trip.
-              consumerViewModel.isDriverCompletingAnotherTrip()
-                  ? R.string.state_completing_another_trip
-                  : R.string.state_enroute_to_pickup;
-
-          setTripStatusTitle(titleId);
+          setTripStatusTitle(R.string.state_enroute_to_pickup);
         } else {
           setTripStatusTitle(R.string.state_new);
         }
         actionButton.setVisibility(View.INVISIBLE);
+        isSharedTripTypeSwitch.setVisibility(View.GONE);
         break;
       case TripStatus.ENROUTE_TO_PICKUP:
         removeAllMarkers();
@@ -366,27 +391,27 @@ public class SampleAppActivity extends AppCompatActivity
    * This draws markers that need to be displayed *only* during 'JourneySharing`. Example: Waypoints
    * belonging to a previous trip are not displayed by ConsumerSDK, so we manually render them.
    */
-  private void drawJourneySharingStateMarkers(ImmutableList<TripWaypoint> previousTripWaypoints) {
+  private void drawJourneySharingStateMarkers(List<TripWaypoint> otherTripWaypoints) {
     Marker addedMarker;
 
-    for (TripWaypoint waypoint : previousTripWaypoints) {
+    for (TripWaypoint waypoint : otherTripWaypoints) {
       addedMarker =
           googleMap.addMarker(
               ConsumerMarkerUtils.getConsumerMarkerOptions(
                       this, ConsumerMarkerType.PREVIOUS_TRIP_PENDING_POINT)
                   .position(waypoint.getTerminalLocation().getLatLng()));
 
-      previousTripStopsMarkers.add(addedMarker);
+      otherTripStopsMarkers.add(addedMarker);
     }
   }
 
   /** Clears the list of markers drawn in drawJourneySharingStateMarkers. */
   private void clearJourneySharingStateMarkers() {
-    for (Marker marker : previousTripStopsMarkers) {
+    for (Marker marker : otherTripStopsMarkers) {
       marker.remove();
     }
 
-    previousTripStopsMarkers.clear();
+    otherTripStopsMarkers.clear();
   }
 
   /** Display the reported map state and show trip data when in journey sharing state. */
@@ -410,6 +435,7 @@ public class SampleAppActivity extends AppCompatActivity
         dropoffPin.setVisibility(View.INVISIBLE);
         tripStatusView.setVisibility(View.INVISIBLE);
         addStopButton.setVisibility(View.GONE);
+        isSharedTripTypeSwitch.setVisibility(View.VISIBLE);
         break;
 
       case JOURNEY_SHARING:
@@ -548,8 +574,10 @@ public class SampleAppActivity extends AppCompatActivity
         centerCameraForTripPreview();
         break;
       case CONFIRMING_TRIP:
-        // Create trip
-        consumerViewModel.startSingleExclusiveTrip();
+        consumerViewModel.createTrip();
+        break;
+      default:
+        break;
     }
   }
 
@@ -594,7 +622,7 @@ public class SampleAppActivity extends AppCompatActivity
     Snackbar.make(tripStatusView, resourceId, Snackbar.LENGTH_SHORT).show();
   }
 
-  private void displayPreviousTripMarkers(ImmutableList<TripWaypoint> waypoints) {
+  private void displayOtherTripMarkers(List<TripWaypoint> waypoints) {
     clearJourneySharingStateMarkers();
 
     if (consumerViewModel.getAppState().getValue() == JOURNEY_SHARING) {
@@ -678,6 +706,11 @@ public class SampleAppActivity extends AppCompatActivity
     actionButton.setOnClickListener(this::onActionButtonTapped);
     addStopButton = findViewById(R.id.addStopButton);
     addStopButton.setOnClickListener(this::onAddStopButtonTapped);
+
+    isSharedTripTypeSwitch = findViewById(R.id.is_shared_trip_type_switch);
+    isSharedTripTypeSwitch.setOnCheckedChangeListener(
+        (view, isChecked) -> consumerViewModel.setIsSharedTripType(isChecked));
+
     resetActionButton();
   }
 
@@ -706,8 +739,8 @@ public class SampleAppActivity extends AppCompatActivity
         .observe(SampleAppActivity.this, SampleAppActivity.this::displayErrorMessage);
 
     consumerViewModel
-        .getPreviousTripWaypoints()
-        .observe(SampleAppActivity.this, SampleAppActivity.this::displayPreviousTripMarkers);
+        .getOtherTripWaypoints()
+        .observe(SampleAppActivity.this, SampleAppActivity.this::displayOtherTripMarkers);
   }
 
   @Override

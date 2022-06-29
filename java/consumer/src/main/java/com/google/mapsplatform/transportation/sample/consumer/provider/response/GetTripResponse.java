@@ -22,9 +22,6 @@ public class GetTripResponse {
   @SerializedName("trip")
   private TripResponse trip;
 
-  @SerializedName("routeToken")
-  private String routeToken;
-
   public TripResponse getTrip() {
     return trip;
   }

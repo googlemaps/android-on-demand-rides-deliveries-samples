@@ -81,11 +81,11 @@ public class LocalProviderService {
    * @param tripId ID of the trip being updated.
    * @param status Fleet-Engine compatible name of the status.
    */
-  public void updateTripStatus(String tripId, String status) {
+  public ListenableFuture<TripModel> updateTripStatus(String tripId, String status) {
     TripUpdateBody updateBody = new TripUpdateBody();
     updateBody.setStatus(status);
 
-    updateTrip(tripId, updateBody);
+    return updateTrip(tripId, updateBody);
   }
 
   /**
@@ -95,13 +95,13 @@ public class LocalProviderService {
    * @param status Fleet-Engine compatible name of the status.
    * @param intermediateDestinationIndex Index pointing to the current intermediate destination.
    */
-  public void updateTripStatusWithIntermediateDestinationIndex(
+  public ListenableFuture<TripModel> updateTripStatusWithIntermediateDestinationIndex(
       String tripId, String status, int intermediateDestinationIndex) {
     TripUpdateBody updateBody = new TripUpdateBody();
     updateBody.setStatus(status);
     updateBody.setIntermediateDestinationIndex(intermediateDestinationIndex);
 
-    updateTrip(tripId, updateBody);
+    return updateTrip(tripId, updateBody);
   }
 
   /**
@@ -132,7 +132,7 @@ public class LocalProviderService {
     return resultFuture;
   }
 
-  private void updateTrip(String tripId, TripUpdateBody updateBody) {
+  private ListenableFuture<TripModel> updateTrip(String tripId, TripUpdateBody updateBody) {
     ListenableFuture<TripModel> future = restProvider.updateTrip(tripId, updateBody);
 
     Futures.addCallback(
@@ -155,6 +155,8 @@ public class LocalProviderService {
           }
         },
         executor);
+
+    return future;
   }
 
   /** Fetches a vehicle identified by 'vehicleId' from the sample provider service. */

@@ -38,6 +38,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.mapsplatform.transportation.sample.driver.provider.ProviderUtils;
 import com.google.mapsplatform.transportation.sample.driver.provider.request.VehicleSettings;
+import com.google.mapsplatform.transportation.sample.driver.provider.response.TripModel;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.VehicleModel;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.Waypoint;
 import com.google.mapsplatform.transportation.sample.driver.provider.service.LocalProviderService;
@@ -365,13 +366,22 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
           TripState updatedTripState =
               TripUtils.getNextTripState(previousTripState, nextWaypointOfCurrentTrip);
 
-          updateTripStatusInServer(updatedTripState);
+          TripStatus updatedTripStatus = updatedTripState.tripStatus();
 
-          if (updatedTripState.tripStatus() == TripStatus.ARRIVED_AT_PICKUP
-              || updatedTripState.tripStatus() == TripStatus.ARRIVED_AT_INTERMEDIATE_DESTINATION
-              || updatedTripState.tripStatus() == TripStatus.COMPLETE) {
-            advanceNextWaypointsOnArrival();
-          }
+          Futures.addCallback(
+              updateTripStatusInServer(updatedTripState),
+              new FutureCallback<TripModel>() {
+                @Override
+                public void onSuccess(TripModel tripModel) {
+                  if (nextWaypoint != null && TripUtils.isTripStatusArrived(updatedTripStatus)) {
+                    advanceNextWaypointOnArrival(nextWaypoint);
+                  }
+                }
+
+                @Override
+                public void onFailure(Throwable t) {}
+              },
+              executor);
 
           updateNavigationForWaypoints(updatedTripState);
           enableActionButton(false);
@@ -380,7 +390,7 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
               TAG,
               String.format(
                   "Previous trip status: %s Current trip status: %s",
-                  previousTripState.tripStatus(), updatedTripState.tripStatus()));
+                  previousTripState.tripStatus(), updatedTripStatus));
         });
   }
 
@@ -403,27 +413,12 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
     }
   }
 
-  private void advanceNextWaypointsOnArrival() {
-    if (nextWaypoint == null) {
-      return;
-    }
-
+  private void advanceNextWaypointOnArrival(Waypoint nextWaypoint) {
     TripState updatedStateForNextWaypoint =
         TripUtils.getEnrouteStateForWaypoint(
             nextWaypoint, tripStates.get(nextWaypoint.getTripId()));
 
     updateTripStatusInServer(updatedStateForNextWaypoint);
-
-    if (nextWaypoint.getTripId().equals(currentWaypoint.getTripId())
-        || nextWaypointOfCurrentTrip == null) {
-      return;
-    }
-
-    TripState updatedStateForNextWaypointOfCurrentTrip =
-        TripUtils.getEnrouteStateForWaypoint(
-            nextWaypointOfCurrentTrip, tripStates.get(nextWaypointOfCurrentTrip.getTripId()));
-
-    updateTripStatusInServer(updatedStateForNextWaypointOfCurrentTrip);
   }
 
   private void enableActionButton(boolean enabled) {
@@ -456,22 +451,22 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
     }
   }
 
-  private void updateTripStatusInServer(TripState updatedState) {
+  private ListenableFuture<TripModel> updateTripStatusInServer(TripState updatedState) {
     tripStates.put(updatedState.tripId(), updatedState);
 
     TripStatus updatedStatus = updatedState.tripStatus();
 
     if (updatedStatus == TripStatus.UNKNOWN_TRIP_STATUS) {
-      return;
+      return Futures.immediateFailedFuture(new IllegalStateException("Invalid trip status"));
     }
 
     if (updatedStatus == TripStatus.ENROUTE_TO_INTERMEDIATE_DESTINATION) {
-      providerService.updateTripStatusWithIntermediateDestinationIndex(
+      return providerService.updateTripStatusWithIntermediateDestinationIndex(
           updatedState.tripId(),
           updatedStatus.toString(),
           updatedState.intermediateDestinationIndex());
     } else {
-      providerService.updateTripStatus(updatedState.tripId(), updatedStatus.toString());
+      return providerService.updateTripStatus(updatedState.tripId(), updatedStatus.toString());
     }
   }
 

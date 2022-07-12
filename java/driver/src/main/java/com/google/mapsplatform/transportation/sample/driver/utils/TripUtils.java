@@ -45,14 +45,12 @@ public final class TripUtils {
   public static TripState getNextTripState(TripState tripState, Waypoint nextWaypointOfTrip) {
     TripStatus nextStatus = getNextStatus(tripState, nextWaypointOfTrip);
 
-    if (nextStatus == TripStatus.ENROUTE_TO_INTERMEDIATE_DESTINATION) {
-      int currentIntermediateDestinationIndex = tripState.intermediateDestinationIndex();
+    int intermediateDestinationIndex =
+        nextStatus == TripStatus.ENROUTE_TO_INTERMEDIATE_DESTINATION
+            ? tripState.intermediateDestinationIndex() + 1
+            : tripState.intermediateDestinationIndex();
 
-      return TripState.create(
-          tripState.tripId(), nextStatus, currentIntermediateDestinationIndex + 1);
-    }
-
-    return TripState.create(tripState.tripId(), nextStatus);
+    return TripState.create(tripState.tripId(), nextStatus, intermediateDestinationIndex);
   }
 
   /** Determines if the given status is a type of 'ENROUTE'. */
@@ -62,12 +60,23 @@ public final class TripUtils {
         || status == TripStatus.ENROUTE_TO_DROPOFF;
   }
 
+  /** Determines if the given status is a type of 'ARRIVED'. */
+  public static boolean isTripStatusArrived(TripStatus status) {
+    return status == TripStatus.ARRIVED_AT_PICKUP
+        || status == TripStatus.ARRIVED_AT_INTERMEDIATE_DESTINATION
+        || status == TripStatus.COMPLETE;
+  }
+
   /**
    * Returns an updated 'ENROUTE' state for the given waypoint. Depending on the waypoint type, it
    * will return a different type of 'ENROUTE' status.
    */
   public static TripState getEnrouteStateForWaypoint(Waypoint waypoint, TripState currentState) {
     TripState state;
+
+    if (currentState.tripStatus() == TripStatus.COMPLETE) {
+      return currentState;
+    }
 
     switch (waypoint.getWaypointType()) {
       case TripUtils.PICKUP_WAYPOINT_TYPE:

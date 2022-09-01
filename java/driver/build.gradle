@@ -76,7 +76,7 @@ dependencies {
     implementation 'com.squareup.retrofit2:retrofit:2.9.0'
     implementation 'com.squareup.retrofit2:adapter-guava:2.9.0'
     implementation 'org.checkerframework:checker-qual:3.18.0'
-    implementation 'com.google.android.libraries.mapsplatform.transportation:transportation-driver:4.0.0'
+    implementation 'com.google.android.libraries.mapsplatform.transportation:transportation-driver:4.3.0'
     implementation 'com.google.android.maps:navsdk:3.1.2'
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$anroidxJunitVersion"

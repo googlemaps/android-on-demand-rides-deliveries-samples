@@ -18,25 +18,34 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.libraries.navigation.Navigator
 import com.google.android.libraries.navigation.SimulationOptions
 import com.google.android.libraries.navigation.Simulator
-import com.google.mapsplatform.transportation.sample.kotlindriver.config.DriverTripConfig
+import com.google.mapsplatform.transportation.sample.kotlindriver.provider.response.Waypoint
 
 /**
  * Commands to simulate the vehicle driving along a route. It interacts with the [Navigator] to make
  * the vehicle move along its route to a specified location.
+ *
+ * @property simulator the actual simulator object obtained from [Navigator] that will update
+ * locations.
+ * @propery localSettings settings that are aware of the simulation enabling.
  */
-internal class VehicleSimulator(private val simulator: Simulator) {
+internal class VehicleSimulator(
+  private val simulator: Simulator,
+  private val localSettings: LocalSettings,
+) {
   /** Sets the user location to be used for simulation. */
-  fun setLocation(location: DriverTripConfig.Point): Unit =
+  fun setLocation(location: Waypoint.Point): Unit =
     simulator.setUserLocation(LatLng(location.latitude, location.longitude))
 
   /**
    * Starts a simulation to the location defined by [.setLocation] along a route calculated by the
-   * Navigator.
+   * [Navigator].
    */
   fun start(speedMultiplier: Float) {
-    simulator.simulateLocationsAlongExistingRoute(
-      SimulationOptions().speedMultiplier(speedMultiplier)
-    )
+    if (localSettings.getIsSimulationEnabled()) {
+      simulator.simulateLocationsAlongExistingRoute(
+        SimulationOptions().speedMultiplier(speedMultiplier)
+      )
+    }
   }
 
   /** Pauses a simulation that can later be resumed. */
@@ -44,7 +53,7 @@ internal class VehicleSimulator(private val simulator: Simulator) {
     simulator.pause()
   }
 
-  /** Stops the current simulation. */
+  /** Resets the position of the [Navigator] and pauses navigation. */
   fun unsetLocation() {
     simulator.unsetUserLocation()
   }

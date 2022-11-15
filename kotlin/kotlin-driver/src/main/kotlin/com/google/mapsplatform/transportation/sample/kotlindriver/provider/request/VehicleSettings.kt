@@ -12,14 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.mapsplatform.transportation.sample.kotlindriver.provider.response
+package com.google.mapsplatform.transportation.sample.kotlindriver.provider.request
 
-import com.google.gson.annotations.SerializedName
-import com.google.mapsplatform.transportation.sample.kotlindriver.config.DriverTripConfig
+import com.google.mapsplatform.transportation.sample.kotlindriver.utils.TripUtils.EXCLUSIVE_TRIP_TYPE
 
-/** Non-extensive POJO representation of a Trip response object. */
-class TripData(
-  @SerializedName("name") val name: String? = null,
-  @SerializedName("tripStatus") private val tripStatus: String? = null,
-  @SerializedName("waypoints") val waypoints: List<DriverTripConfig.Waypoint>
+/** Body object for vehicle settings. It is used for creating/updating vehicle. */
+data class VehicleSettings(
+  val vehicleId: String = "",
+  val backToBackEnabled: Boolean = false,
+  val maximumCapacity: Int = 5,
+  val supportedTripTypes: List<String> = listOf(EXCLUSIVE_TRIP_TYPE),
 )

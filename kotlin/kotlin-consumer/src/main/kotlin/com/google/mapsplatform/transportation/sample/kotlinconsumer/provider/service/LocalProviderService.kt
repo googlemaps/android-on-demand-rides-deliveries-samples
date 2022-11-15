@@ -15,16 +15,12 @@
 package com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.service
 
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripName
-import com.google.common.util.concurrent.Futures
-import com.google.common.util.concurrent.ListenableFuture
+import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.model.CreateTripRequest
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.model.TripData
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.model.TripStatus
-import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.model.WaypointData
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.response.GetTripResponse
-import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.response.TokenResponse
-import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.response.TripResponse
-import java.util.concurrent.Executor
-import java.util.concurrent.ScheduledExecutorService
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.delay
 import retrofit2.Retrofit
 import retrofit2.adapter.guava.GuavaCallAdapterFactory
 import retrofit2.converter.gson.GsonConverterFactory
@@ -32,56 +28,46 @@ import retrofit2.converter.gson.GsonConverterFactory
 /**
  * Provider service for a locally hosted Sample Journeysharing provider.
  *
- * Default base URL: http://10.0.2.2:8888/
+ * Default base URL: http://10.0.2.2:8080/
  */
 class LocalProviderService(
   /** Time between attempts of a trip polling routine. */
   private val provider: RestProvider,
-  private val executor: Executor,
-  private val scheduledExecutor: ScheduledExecutorService
 ) {
+  /** Creates a trip in the Provider based on the data given in request. */
+  suspend fun createTrip(request: CreateTripRequest) = provider.createTrip(request)
 
-  fun createSingleExclusiveTrip(waypoint: WaypointData): ListenableFuture<TripResponse> {
-    return provider.createSingleExclusiveTrip(waypoint)
-  }
+  /** Fetches an auth token for the given trip from the Provider. */
+  suspend fun fetchAuthToken(tripId: String) = provider.getConsumerToken(tripId)
 
-  fun fetchAuthToken(tripId: String): ListenableFuture<TokenResponse> {
-    return provider.getConsumerToken(tripId)
-  }
-
-  fun fetchMatchedTrip(tripName: String): ListenableFuture<TripData> {
+  /** Polls the Provider until the given trip is matched to a vehicle. */
+  suspend fun fetchMatchedTrip(tripName: String): TripData {
     val tripId = TripName.create(tripName).tripId
-    val getTripResponseFuture: ListenableFuture<GetTripResponse> =
-      fetchMatchedTripWithRetries(tripId)
-    return Futures.transform(
-      getTripResponseFuture,
-      { getTripResponse: GetTripResponse? ->
-        val trip: TripResponse = getTripResponse!!.trip!!
-        TripData(
+
+    while (true) {
+      val tripResponse = provider.getTrip(tripId)
+
+      if (isTripMatched(tripResponse)) {
+        val trip = tripResponse.trip!!
+
+        return TripData(
           tripId = tripId,
-          tripName = trip.tripName!!,
-          vehicleId = trip.vehicleId!!,
-          tripStatus = TripStatus.parse(trip.tripStatus!!),
+          tripName = trip.tripName,
+          vehicleId = trip.vehicleId,
+          tripStatus = TripStatus.parse(trip.tripStatus),
           waypoints = trip.waypoints
         )
-      },
-      executor
-    )
-  }
+      }
 
-  private fun fetchMatchedTripWithRetries(tripId: String): ListenableFuture<GetTripResponse> {
-    return RetryingFuture(scheduledExecutor).runWithRetries(
-        { provider.getTrip(tripId) },
-        RetryingFuture.RUN_FOREVER,
-        GET_TRIP_RETRY_INTERVAL_MILLIS.toLong()
-      ) { response: GetTripResponse? -> isTripValid(response) }
+      // Poll interval delay.
+      delay(5.seconds)
+    }
   }
 
   companion object {
     private const val TAG = "LocalProviderService"
-    const val GET_TRIP_RETRY_INTERVAL_MILLIS = 5000
 
-    private fun isTripValid(response: GetTripResponse?): Boolean =
+    private fun isTripMatched(response: GetTripResponse?): Boolean =
       response?.trip?.vehicleId?.isNotEmpty() ?: false
 
     /** Gets a Retrofit implementation of the Journey Sharing REST provider. */

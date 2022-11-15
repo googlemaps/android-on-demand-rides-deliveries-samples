@@ -15,7 +15,4 @@
 package com.google.mapsplatform.transportation.sample.kotlindriver.provider.request
 
 /** Body object for a trip update request. */
-class TripUpdateBody(val status: String? = null, val intermediateDestinationIndex: Int? = null) {
-  override fun toString(): String =
-    "status: $status" + intermediateDestinationIndex?.let { " intermediateDestinationIndex: $it" }
-}
+data class TripUpdateBody(val status: String, val intermediateDestinationIndex: Int? = null)

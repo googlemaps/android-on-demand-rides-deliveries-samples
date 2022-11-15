@@ -14,51 +14,22 @@
  */
 package com.google.mapsplatform.transportation.sample.kotlindriver.config
 
-import com.google.gson.annotations.SerializedName
+import com.google.mapsplatform.transportation.sample.kotlindriver.provider.response.Waypoint
 
 /** Driver Trip Config JSON access methods. */
 class DriverTripConfig(
-  /** Returns the trip Google project id. */
-  @SerializedName("project_id") val projectId: String? = null,
-
   /** Returns the trip id. */
-  @SerializedName("trip_id") val tripId: String? = null,
+  val tripId: String? = null,
 
   /** Returns the vehicle id for the trip. */
-  @SerializedName("vehicle_id") val vehicleId: String? = null,
+  val vehicleId: String? = null,
 
   /** Returns the vehicle starting location for the trip. */
-  @SerializedName("vehicle_location") var vehicleLocation: Point? = null,
+  var vehicleLocation: Waypoint.Point? = null,
 
   /** Returns the array of Waypoints for the trip. */
-  @SerializedName("waypoints") val waypoints: List<Waypoint> = listOf(),
-  /** Returns the route token of the trip. */
-  val routeToken: String? = null
+  val waypoints: List<Waypoint> = listOf(),
 ) {
-  /** Represents the waypoint consisting of a location and type of the waypoint. */
-  class Waypoint(
-    /** Returns the waypoint location. */
-    @SerializedName("location") val location: Location? = null,
-
-    /** Returns the type of waypoint, pickup, dropoff, or intermediateDestination. */
-    @SerializedName("waypointType") val waypointType: String? = null
-  )
-
-  /** Represents a location consisting of a single point. */
-  class Location(
-    /** Returns the point that defines the location. */
-    @SerializedName(value = "point") val point: Point? = null
-  )
-
-  /** Represents a point which is latitude and longitude coordinates. */
-  class Point(
-    /** Returns the latitude component of the point. */
-    @SerializedName(value = "latitude") val latitude: Double = 0.0,
-
-    /** Returns the longitude component of the point. */
-    @SerializedName(value = "longitude") val longitude: Double = 0.0
-  )
-
   /**
    * Returns the waypoint at given index.
    *

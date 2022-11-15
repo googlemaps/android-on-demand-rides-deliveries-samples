@@ -18,12 +18,15 @@ import com.google.mapsplatform.transportation.sample.kotlindriver.state.TripStat
 
 /** Presents information on the main page. */
 interface Presenter {
-  /** Show trip ID in the main page. */
+  /** Show current waypoint trip ID in the info panel. */
   fun showTripId(tripId: String)
 
-  /** Show Next trip ID in the main page. */
-  fun showNextTripId(tripId: String)
+  /** Show list of trip IDs assigned to the Vehicle. */
+  fun showMatchedTripIds(tripIds: List<String>)
 
-  /** Show trip status in the main page. */
+  /** Show trip status in the info panel. */
   fun showTripStatus(status: TripStatus)
+
+  /** Enable/disable action button. */
+  fun enableActionButton(enabled: Boolean)
 }

@@ -14,8 +14,6 @@
  */
 package com.google.mapsplatform.transportation.sample.driver;
 
-import static java.util.Objects.requireNonNull;
-
 import android.annotation.SuppressLint;
 import android.app.Application;
 import android.os.Bundle;
@@ -104,17 +102,11 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
     NavigationApi.getNavigator(
         this,
         new NavigationApi.NavigatorListener() {
-
           @Override
           public void onNavigatorReady(Navigator navigator) {
             Application app = (Application) getApplicationContext();
             vehicleController =
-                new VehicleController(
-                    getApplication(),
-                    navigator,
-                    requireNonNull(NavigationApi.getRoadSnappedLocationProvider(app)),
-                    executor,
-                    MainActivity.this);
+                new VehicleController(getApplication(), navigator, executor, MainActivity.this);
             vehicleController.setPresenter(MainActivity.this);
             initVehicleAndPollTrip();
           }

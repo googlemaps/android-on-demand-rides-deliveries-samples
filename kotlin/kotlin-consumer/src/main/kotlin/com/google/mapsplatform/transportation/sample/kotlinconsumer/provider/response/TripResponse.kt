@@ -18,8 +18,8 @@ import com.google.gson.annotations.SerializedName
 
 /** Non-extensive POJO representation of a Trip response object. */
 class TripResponse(
-  @SerializedName("name") val tripName: String? = null,
-  @SerializedName("tripStatus") val tripStatus: String? = null,
+  @SerializedName("name") val tripName: String = "",
+  @SerializedName("tripStatus") val tripStatus: String = "",
   @SerializedName("waypoints") val waypoints: List<WaypointResponse> = listOf(),
-  @SerializedName("vehicleId") val vehicleId: String? = null
+  @SerializedName("vehicleId") val vehicleId: String = ""
 )

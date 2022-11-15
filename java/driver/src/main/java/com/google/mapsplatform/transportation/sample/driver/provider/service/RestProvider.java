@@ -17,7 +17,6 @@ package com.google.mapsplatform.transportation.sample.driver.provider.service;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mapsplatform.transportation.sample.driver.provider.request.TripUpdateBody;
 import com.google.mapsplatform.transportation.sample.driver.provider.request.VehicleSettings;
-import com.google.mapsplatform.transportation.sample.driver.provider.response.GetTripResponse;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.TokenResponse;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.TripModel;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.VehicleModel;
@@ -33,9 +32,6 @@ interface RestProvider {
 
   @GET("token/driver/{vehicleId}")
   ListenableFuture<TokenResponse> getAuthToken(@Path("vehicleId") String vehicleId);
-
-  @GET("trip/{tripId}")
-  ListenableFuture<GetTripResponse> getAvailableTrip(@Path("tripId") String id);
 
   @POST("vehicle/new")
   ListenableFuture<VehicleModel> createVehicle(@Body VehicleSettings body);

@@ -24,184 +24,215 @@ import com.google.android.libraries.mapsplatform.transportation.driver.api.base.
 import com.google.android.libraries.mapsplatform.transportation.driver.api.ridesharing.RidesharingDriverApi
 import com.google.android.libraries.mapsplatform.transportation.driver.api.ridesharing.vehiclereporter.RidesharingVehicleReporter
 import com.google.android.libraries.mapsplatform.transportation.driver.api.ridesharing.vehiclereporter.RidesharingVehicleReporter.VehicleState
+import com.google.android.libraries.navigation.ListenableResultFuture
 import com.google.android.libraries.navigation.NavigationApi
 import com.google.android.libraries.navigation.Navigator
-import com.google.android.libraries.navigation.RoadSnappedLocationProvider
-import com.google.android.libraries.navigation.Waypoint
-import com.google.common.collect.Lists
-import com.google.common.util.concurrent.FutureCallback
-import com.google.common.util.concurrent.Futures
-import com.google.common.util.concurrent.ListenableFuture
+import com.google.android.libraries.navigation.Waypoint as NavigationWaypoint
 import com.google.common.util.concurrent.MoreExecutors
-import com.google.mapsplatform.transportation.sample.kotlindriver.config.DriverTripConfig
 import com.google.mapsplatform.transportation.sample.kotlindriver.provider.ProviderUtils
-import com.google.mapsplatform.transportation.sample.kotlindriver.provider.response.VehicleResponse
+import com.google.mapsplatform.transportation.sample.kotlindriver.provider.request.VehicleSettings
+import com.google.mapsplatform.transportation.sample.kotlindriver.provider.response.VehicleModel
+import com.google.mapsplatform.transportation.sample.kotlindriver.provider.response.Waypoint
 import com.google.mapsplatform.transportation.sample.kotlindriver.provider.service.LocalProviderService
-import com.google.mapsplatform.transportation.sample.kotlindriver.provider.service.VehicleStateService
 import com.google.mapsplatform.transportation.sample.kotlindriver.state.TripState
 import com.google.mapsplatform.transportation.sample.kotlindriver.state.TripStatus
+import com.google.mapsplatform.transportation.sample.kotlindriver.utils.TripUtils
 import java.lang.ref.WeakReference
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 
 /** Controls vehicle related functionalities. */
 @Suppress("UnstableApiUsage")
 class VehicleController(
-  application: Application,
   private val navigator: Navigator,
-  roadSnappedLocationProvider: RoadSnappedLocationProvider,
   private val executor: ExecutorService,
-  context: Context
-) : VehicleStateService.VehicleStateListener {
-  private val providerService: LocalProviderService =
-    LocalProviderService(
-      LocalProviderService.createRestProvider(ProviderUtils.getProviderBaseUrl(application)),
-      this.executor,
-      roadSnappedLocationProvider
-    )
-  private val authTokenFactory: TripAuthTokenFactory =
-    TripAuthTokenFactory(application, executor, roadSnappedLocationProvider)
+  context: Context,
+  private val coroutineScope: CoroutineScope,
+  private val providerService: LocalProviderService,
+  private val localSettings: LocalSettings,
+) {
+  private val authTokenFactory: TripAuthTokenFactory = TripAuthTokenFactory(providerService)
   private val mainExecutor: Executor = ContextCompat.getMainExecutor(context)
-  private val scheduledExecutor = Executors.newSingleThreadScheduledExecutor()
   private val sequentialExecutor: Executor = MoreExecutors.newSequentialExecutor(executor)
-  private val vehicleSimulator: VehicleSimulator = VehicleSimulator(navigator.simulator)
-  private val vehicleIdStore: VehicleIdStore = VehicleIdStore(context)
-  private var vehicleStateService: VehicleStateService? = null
+  private val vehicleSimulator: VehicleSimulator =
+    VehicleSimulator(navigator.simulator, localSettings)
   private var presenterRef = WeakReference<Presenter>(null)
   private lateinit var vehicleReporter: RidesharingVehicleReporter
   private var tripState: TripState? = null
+  private var vehicleStateJob: Job? = null
+  lateinit var vehicleSettings: VehicleSettings
 
-  override fun onVehicleStateUpdate(vehicleResponse: VehicleResponse) {
-    // No trip loaded but there's a paired trip.
-    if (tripState == null && vehicleResponse.currentTripsIds.isNotEmpty()) {
-      val tripId = vehicleResponse.currentTripsIds[0]
-      fetchTrip(tripId)
-      return
+  private var currentWaypoint: Waypoint? = null
+  private var nextWaypoint: Waypoint? = null
+  private var nextWaypointOfCurrentTrip: Waypoint? = null
+
+  private var waypoints: List<Waypoint> = emptyList()
+  private var matchedTripIds: List<String> = emptyList()
+
+  private val tripStates: MutableMap<String, TripState> = mutableMapOf()
+
+  fun onVehicleStateUpdate(vehicleModel: VehicleModel) {
+    Log.i(TAG, "onVehicleStateUpdate")
+
+    waypoints = vehicleModel.waypoints
+    matchedTripIds = vehicleModel.currentTripsIds
+
+    // Reset and recalculate waypoints every server state update.
+    currentWaypoint = null
+    nextWaypoint = null
+    nextWaypointOfCurrentTrip = null
+
+    if (!waypoints.isEmpty()) {
+      var updatedNextWaypointOfCurrentTrip: Waypoint? = null
+
+      waypoints.forEachIndexed { index, waypoint ->
+        Log.i(TAG, "$waypoint.tripId $waypoint.waypointType")
+
+        val isTripForWaypointAccepted = tripStates.containsKey(waypoint.tripId)
+
+        if (!isTripForWaypointAccepted) {
+          acceptTrip(waypoint)
+
+          if (currentWaypoint == null) {
+            setWaypointDestination(waypoint)
+          }
+        }
+
+        /**
+         * When 'Vehicle' state is updated from the 'Provider', the client needs to update the
+         * current waypoint pointer so the UI can be refreshed accordingly. It also keeps track of
+         * the second/next waypoint for convenience, this is utilized at the moment where the
+         * current waypoint status changes to 'ARRIVED/COMPLETE'.
+         */
+        if (index == 0) {
+          currentWaypoint = waypoint
+        } else {
+          if (index == 1) {
+            nextWaypoint = waypoint
+          }
+
+          if (
+            updatedNextWaypointOfCurrentTrip == null && currentWaypoint?.tripId == waypoint.tripId
+          ) {
+            updatedNextWaypointOfCurrentTrip = waypoint
+          }
+        }
+      }
+
+      nextWaypointOfCurrentTrip = updatedNextWaypointOfCurrentTrip
+    } else {
+      stopJourneySharing()
     }
 
-    // There's an ongoing trip and a second trip has been matched (B2B).
-    if (tripState != null && vehicleResponse.currentTripsIds.size == 2) {
-      val backToBackTripId = vehicleResponse.currentTripsIds[1]
-      tripState?.also { it.backToBackTripId = backToBackTripId }
-      presenterRef.get()?.also { mainExecutor.execute { it.showNextTripId(backToBackTripId) } }
-    }
+    updateUiForWaypoint(currentWaypoint)
+  }
+
+  /**
+   * Initializes the current vehicle and associated [RidesharingVehicleReporter].
+   *
+   * @param application Application instance.
+   */
+  suspend fun initVehicleAndReporter(application: Application) {
+    val vehicleModel = providerService.registerVehicle(localSettings.getVehicleId())
+
+    initializeApi(application, vehicleModel)
+  }
+
+  /**
+   * Updates the stored vehicle settings. In case vehicle is updated, a new reporter has to be
+   * instantiated.
+   *
+   * @param application Application instance.
+   * @param vehicleSettings the updated vehicle settings.
+   */
+  suspend fun updateVehicleSettings(application: Application, vehicleSettings: VehicleSettings) {
+    val vehicleModel = providerService.createOrUpdateVehicle(vehicleSettings)
+    localSettings.saveVehicleId(extractVehicleId(vehicleModel.name))
+
+    initializeApi(application, vehicleModel)
   }
 
   /**
    * Initialize vehicle and associated [RidesharingVehicleReporter].
    *
    * @param application Application instance.
-   * @return a signal that the async initialization is done, the boolean value can be ignored.
    */
   @Suppress("UnstableApiUsage")
-  fun initVehicleAndReporter(application: Application): ListenableFuture<Boolean> {
+  fun initializeApi(application: Application, vehicleModel: VehicleModel) {
     // If there is a previous instance RidesharingDriverApi (we're updating vehicleId), we clear it
     // to get a fresh one for the new vehicle.
     if (RidesharingDriverApi.getInstance() != null) {
       RidesharingDriverApi.clearInstance()
     }
-    val future =
-      Futures.transform(
-        initVehicle(),
-        {
-          vehicleReporter =
-            RidesharingDriverApi.createInstance(
-                DriverContext.builder(application)
-                  .setNavigator(navigator)
-                  .setProviderId(ProviderUtils.getProviderId(application))
-                  .setVehicleId(vehicleIdStore.readOrDefault())
-                  .setAuthTokenFactory(authTokenFactory)
-                  .setRoadSnappedLocationProvider(
-                    NavigationApi.getRoadSnappedLocationProvider(application)
-                  )
-                  .setStatusListener {
-                    statusLevel: StatusLevel,
-                    statusCode: StatusCode,
-                    statusMsg: String ->
-                    logLocationUpdate(statusLevel, statusCode, statusMsg)
-                  }
-                  .build()
-              )
-              .ridesharingVehicleReporter
-          true
-        },
-        executor
-      )
-    Futures.addCallback(
-      future,
-      object : FutureCallback<Boolean?> {
-        override fun onSuccess(result: Boolean?) {
-          setVehicleOnline()
-          startVehiclePeriodicUpdate()
-        }
 
-        override fun onFailure(t: Throwable) {
-          Log.e(TAG, "initVehicleAndReporter() failed.", t)
-        }
-      },
-      executor
-    )
-    return future
-  }
-
-  private fun fetchTrip(tripId: String) {
-    val tripConfigFuture = providerService.fetchTrip(tripId, vehicleIdStore.readOrDefault())
-    Futures.addCallback(
-      tripConfigFuture,
-      object : FutureCallback<DriverTripConfig> {
-        override fun onSuccess(tripConfig: DriverTripConfig?) {
-          sequentialExecutor.execute {
-            tripConfig?.also { tripState = TripState(it) }
-            tripState?.also { it.setTripMatchedState() }
-            updateServerAndUiTripState()
-          }
-          presenterRef.get()?.also { presenter ->
-            mainExecutor.execute {
-              tripConfig?.tripId?.also { tripId -> presenter.showTripId(tripId) }
-              presenter.showTripStatus(TripStatus.NEW)
+    vehicleReporter =
+      RidesharingDriverApi.createInstance(
+          DriverContext.builder(application)
+            .setNavigator(navigator)
+            .setProviderId(ProviderUtils.getProviderId(application))
+            .setVehicleId(localSettings.getVehicleId())
+            .setAuthTokenFactory(authTokenFactory)
+            .setRoadSnappedLocationProvider(
+              NavigationApi.getRoadSnappedLocationProvider(application)
+            )
+            .setStatusListener { statusLevel: StatusLevel, statusCode: StatusCode, statusMsg: String
+              ->
+              logLocationUpdate(statusLevel, statusCode, statusMsg)
             }
-          }
-        }
+            .build()
+        )
+        .ridesharingVehicleReporter
 
-        override fun onFailure(t: Throwable) {}
-      },
-      executor
-    )
+    vehicleSettings =
+      vehicleModel.let {
+        VehicleSettings(
+          vehicleId = extractVehicleId(it.name)!!,
+          backToBackEnabled = it.backToBackEnabled,
+          supportedTripTypes = it.supportedTripTypes,
+          maximumCapacity = it.maximumCapacity,
+        )
+      }
+
+    setVehicleOnline()
+    startVehiclePeriodicUpdate()
   }
+
+  private fun acceptTrip(waypoint: Waypoint) =
+    coroutineScope.launch {
+      updateTripStatusInServer(TripUtils.getInitialTripState(waypoint.tripId))
+    }
 
   /** Cleans up active resources prior to activity onDestroy, mainly to prevent memory leaks. */
   fun cleanUp() {
     stopVehiclePeriodicUpdate()
+
+    /** Clear existing API instance once we know it won't be needed. */
+    RidesharingDriverApi.clearInstance()
   }
 
   private fun startVehiclePeriodicUpdate() {
-    vehicleStateService?.run { stopAsync() }
-    vehicleStateService = VehicleStateService(providerService, vehicleIdStore.readOrDefault(), this)
-    vehicleStateService?.run { startAsync() }
+    stopVehiclePeriodicUpdate()
+
+    vehicleStateJob =
+      providerService
+        .getVehicleModelFlow(localSettings.getVehicleId())
+        .onEach(::onVehicleStateUpdate)
+        .launchIn(coroutineScope)
   }
 
   private fun stopVehiclePeriodicUpdate() {
-    vehicleStateService?.run { stopAsync() }
-  }
-
-  /** Initialize a vehicle. */
-  private fun initVehicle(): ListenableFuture<VehicleResponse> {
-    val registerVehicleFuture = providerService.registerVehicle(vehicleIdStore.readOrDefault())
-    Futures.addCallback(
-      registerVehicleFuture,
-      object : FutureCallback<VehicleResponse> {
-        override fun onSuccess(vehicleResponse: VehicleResponse?) {
-          vehicleResponse?.name?.also { vehicleIdStore.save(extractVehicleId(it)) }
-        }
-
-        override fun onFailure(t: Throwable) {}
-      },
-      executor
-    )
-    return registerVehicleFuture
+    coroutineScope.launch {
+      vehicleStateJob?.cancelAndJoin()
+      vehicleStateJob = null
+    }
   }
 
   private fun setVehicleOnline() {
@@ -217,73 +248,93 @@ class VehicleController(
 
   /** Updates [TripStatus] to the controller. */
   fun processNextState() {
-    // Use Guava's SequentialExecutor to change the internal state because it is
-    // accessed in multiple threads.
-    sequentialExecutor.execute {
-      tripState?.run { processNextState() }
-      updateServerAndUiTripState()
+    currentWaypoint?.let {
+      // Use Guava's SequentialExecutor to change the internal state because it is
+      // accessed in multiple threads.
+      sequentialExecutor.execute {
+        val previousTripState = tripStates[it.tripId] ?: return@execute
+
+        val updatedTripState =
+          TripUtils.getNextTripState(previousTripState, nextWaypointOfCurrentTrip)
+
+        coroutineScope.launch {
+          updateTripStatusInServer(updatedTripState)
+
+          if (TripUtils.isTripStatusArrived(updatedTripState.tripStatus)) {
+            advanceNextWaypointOnArrival()
+          }
+        }
+
+        updateNavigationForWaypoints(updatedTripState)
+
+        Log.i(
+          TAG,
+          "Previous trip status: $previousTripState.tripStatus " +
+            "Current trip status: $updatedTripState.tripStatus",
+        )
+      }
     }
   }
 
-  /**
-   * Takes current trip 'Status' and updates it in the server. Depending on the status, it might
-   * also update 'intermediateDestinationIndex' (multi-destination support). Then, it updates the UI
-   * (via the Presenter) to reflect the update.
-   */
-  private fun updateServerAndUiTripState() {
-    val currentTripState = tripState ?: return
-    val tripId = currentTripState.tripId ?: return
+  /** Updates the navigation status based on the given trip state. */
+  private fun updateNavigationForWaypoints(tripState: TripState) {
+    when (tripState.tripStatus) {
+      TripStatus.ENROUTE_TO_PICKUP -> {
+        currentWaypoint?.let {
+          startJourneySharing()
+          navigateToWaypoint(it)
+        }
+      }
+      TripStatus.ARRIVED_AT_PICKUP,
+      TripStatus.ARRIVED_AT_INTERMEDIATE_DESTINATION,
+      TripStatus.COMPLETE -> nextWaypoint?.let { navigateToWaypoint(it) }
+      else -> {}
+    }
+  }
 
-    val updatedStatus = currentTripState.status
-    if (updatedStatus != TripStatus.UNKNOWN_TRIP_STATUS) {
-      if (updatedStatus == TripStatus.ENROUTE_TO_INTERMEDIATE_DESTINATION) {
-        providerService.updateTripStatusWithIntermediateDestinationIndex(
-          tripId,
-          updatedStatus.toString(),
-          currentTripState.waypointIndex - 1
-        )
+  /** Advances the trip status of the next waypoint to enroute. */
+  private suspend fun advanceNextWaypointOnArrival() {
+    nextWaypoint?.let {
+      val updatedStateForNextWaypoint =
+        TripUtils.getEnrouteStateForWaypoint(tripStates[it.tripId] ?: return@let, it)
+
+      updateTripStatusInServer(updatedStateForNextWaypoint)
+    }
+  }
+
+  /** Updates the UI (via 'Presenter') based on the given waypoint. */
+  private fun updateUiForWaypoint(waypoint: Waypoint?) {
+    val presenter = presenterRef.get() ?: return
+
+    mainExecutor.execute {
+      if (waypoint == null) {
+        presenter.showTripId(NO_TRIP_ID)
+        presenter.showTripStatus(TripStatus.UNKNOWN_TRIP_STATUS)
+        presenter.showMatchedTripIds(emptyList())
       } else {
-        providerService.updateTripStatus(tripId, updatedStatus.toString())
+        tripStates[waypoint.tripId]?.let {
+          presenter.showTripId(it.tripId)
+          presenter.showTripStatus(it.tripStatus)
+          presenter.showMatchedTripIds(matchedTripIds)
+        }
       }
     }
-    mainExecutor.execute { presenterRef.get()?.apply { showTripStatus(updatedStatus) } }
-    updateVehicleByTripStatus(updatedStatus)
+  }
+
+  /** Updates the trip status in the server based on the given state. */
+  private suspend fun updateTripStatusInServer(updatedState: TripState) {
+    tripStates[updatedState.tripId] = updatedState
+
+    if (updatedState.tripStatus == TripStatus.UNKNOWN_TRIP_STATUS) {
+      return
+    }
+
+    providerService.updateTripStatus(updatedState)
   }
 
   /** Sets presenter to the controller so it can invokes UI related callbacks. */
   fun setPresenter(presenter: Presenter?) {
     presenterRef = WeakReference(presenter)
-  }
-
-  /**
-   * Updates Vehicle state (navigator waypoint, simulator, journey sharing) based on the given trip
-   * status.
-   */
-  private fun updateVehicleByTripStatus(status: TripStatus?) {
-    val currentTripState = tripState ?: return
-    when (status) {
-      TripStatus.UNKNOWN_TRIP_STATUS -> vehicleSimulator.pause()
-      TripStatus.NEW -> {
-        setNextWaypointOnNavigator()
-        currentTripState.initialVehicleLocation?.also { vehicleSimulator.setLocation(it) }
-      }
-      TripStatus.ENROUTE_TO_PICKUP,
-      TripStatus.ENROUTE_TO_DROPOFF,
-      TripStatus.ENROUTE_TO_INTERMEDIATE_DESTINATION -> {
-        startJourneySharing()
-        vehicleSimulator.start(SIMULATOR_SPEED_MULTIPLIER)
-      }
-      TripStatus.ARRIVED_AT_PICKUP, TripStatus.ARRIVED_AT_INTERMEDIATE_DESTINATION -> {
-        stopJourneySharing()
-        setNextWaypointOnNavigator()
-      }
-      TripStatus.COMPLETE, TripStatus.CANCELED -> {
-        stopJourneySharing()
-        vehicleSimulator.unsetLocation()
-        onTripFinishedOrCancelled()
-      }
-      else -> {}
-    }
   }
 
   // Starts simulating journey sharing. Reduces the update interval.
@@ -292,7 +343,6 @@ class VehicleController(
       JOURNEY_SHARING_LOCATION_UPDATE_INTERVAL_SECONDS,
       TimeUnit.SECONDS
     )
-    navigator.startGuidance()
   }
 
   // Stops journey sharing by turning off guidance and reducing the location reporting frequency.
@@ -301,70 +351,71 @@ class VehicleController(
       DEFAULT_LOCATION_UPDATE_INTERVAL_SECONDS,
       TimeUnit.SECONDS
     )
+
+    // The following two are the only required methods to clean up navigator state in between stops.
     navigator.stopGuidance()
     navigator.clearDestinations()
   }
 
-  /**
-   * Given the current waypoint, it determines what the next one will be and sets the navigator
-   * destination to it.
-   */
-  private fun setNextWaypointOnNavigator() {
-    val currentTripState = tripState ?: return
-    val waypointIndex = currentTripState.waypointIndex
-    val waypoint = currentTripState.waypoints[waypointIndex + 1]
+  /** Sets the destination for the navigator to the waypoint provided. */
+  private fun setWaypointDestination(waypoint: Waypoint) {
     val locationPoint = waypoint.location?.point ?: return
-    val destinationWaypoint =
-      Waypoint.builder()
+
+    val destinationWaypoint: NavigationWaypoint =
+      NavigationWaypoint.builder()
         .setLatLng(locationPoint.latitude, locationPoint.longitude)
         .setTitle(waypoint.waypointType)
         .build()
-    navigator.setDestinations(Lists.newArrayList(destinationWaypoint), currentTripState.routeToken)
+
+    // If the loaded trip has a 'routeToken' generated it would be set to NavSDK here.
+    navigator.setDestination(destinationWaypoint)
   }
 
-  // Returns true if current trip has intermediate destinations (multi-destination support).
-  fun hasIntermediateDestinations(): Boolean = tripState?.hasIntermediateDestinations() ?: false
-
-  // Returns true if driver is on the last intermediate destination (and hence, dropoff is next).
-  val isOnLastIntermediateDestination: Boolean
-    get() = tripState?.isOnLastIntermediateDestination ?: false
-
-  private fun onTripFinishedWithBackToBack() {
-    // Trip has already been reset.
-    val currentTripState = tripState ?: return
-    val backToBackTripId = currentTripState.backToBackTripId ?: return
-    showTripIds(backToBackTripId, NO_TRIP_ID)
-    tripState = null
-    fetchTrip(backToBackTripId)
-  }
-
-  @Suppress("SameParameterValue")
-  private fun showTripIds(currentTripId: String, nextTripId: String) {
-    val presenter = presenterRef.get() ?: return
-    mainExecutor.execute {
-      presenter.showTripId(currentTripId)
-      presenter.showNextTripId(nextTripId)
-    }
-  }
-
-  private fun onTripFinishedOrCancelled() {
-    // Trip has already been reset.
-    val currentTripState = tripState ?: return
-
-    if (currentTripState.backToBackTripId?.isNotEmpty() == true) {
-      onTripFinishedWithBackToBack()
+  /**
+   * Given the current waypoint, it determines what the next one will be, set the navigator
+   * destination to it and kicks off navigation when ready.
+   */
+  private fun navigateToWaypoint(waypoint: Waypoint?) {
+    if (waypoint == null) {
+      navigator.stopGuidance()
       return
     }
-    showTripIds("No trip assigned", NO_TRIP_ID)
-    scheduledExecutor.schedule(
-      {
-        tripState = null
-        updateServerAndUiTripState()
-      },
-      ON_TRIP_FINISHED_DELAY_SECONDS.toLong(),
-      TimeUnit.SECONDS
+
+    val locationPoint = waypoint.location?.point ?: return
+
+    val pendingRoute =
+      navigator.setDestination(
+        NavigationWaypoint.builder()
+          .setLatLng(locationPoint.latitude, locationPoint.longitude)
+          .setTitle(waypoint.waypointType)
+          .build()
+      )
+
+    pendingRoute.setOnResultListener(
+      object : ListenableResultFuture.OnResultListener<Navigator.RouteStatus> {
+        override fun onResult(code: Navigator.RouteStatus) {
+          when (code) {
+            Navigator.RouteStatus.OK -> {
+              navigator.startGuidance()
+              vehicleSimulator.start(SIMULATOR_SPEED_MULTIPLIER)
+            }
+            Navigator.RouteStatus.NO_ROUTE_FOUND,
+            Navigator.RouteStatus.NETWORK_ERROR,
+            Navigator.RouteStatus.ROUTE_CANCELED -> {
+              Log.e(TAG, "Failed to set a route to next waypoint")
+            }
+            else -> {}
+          }
+        }
+      }
     )
   }
+
+  /**
+   * Determines if the next waypoint of the current trip (if any) is an intermediate destination.
+   */
+  fun isNextCurrentTripWaypointIntermediate() =
+    nextWaypointOfCurrentTrip?.waypointType == TripUtils.INTERMEDIATE_DESTINATION_WAYPOINT_TYPE
 
   companion object {
     // Controls the relative speed of the simulator.
@@ -389,7 +440,13 @@ class VehicleController(
       statusCode: StatusCode,
       statusMsg: String
     ) {
-      Log.i("STATUS", "$statusLevel $statusCode: $statusMsg")
+      val message = "Location update: $statusLevel $statusCode: $statusMsg"
+
+      if (statusLevel == StatusLevel.ERROR) {
+        Log.e(TAG, message)
+      } else {
+        Log.i(TAG, message)
+      }
     }
 
     private fun extractVehicleId(vehicleName: String): String? {

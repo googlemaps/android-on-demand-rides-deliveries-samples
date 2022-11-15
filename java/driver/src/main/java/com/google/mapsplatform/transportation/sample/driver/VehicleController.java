@@ -30,7 +30,6 @@ import com.google.android.libraries.mapsplatform.transportation.driver.api.rides
 import com.google.android.libraries.navigation.ListenableResultFuture;
 import com.google.android.libraries.navigation.NavigationApi;
 import com.google.android.libraries.navigation.Navigator;
-import com.google.android.libraries.navigation.RoadSnappedLocationProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -113,11 +112,7 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
   private Map<String, TripState> tripStates = new HashMap<>();
 
   public VehicleController(
-      Application application,
-      Navigator navigator,
-      RoadSnappedLocationProvider roadSnappedLocationProvider,
-      ExecutorService executor,
-      Context context) {
+      Application application, Navigator navigator, ExecutorService executor, Context context) {
     this.navigator = navigator;
     vehicleSimulator = new VehicleSimulator(navigator.getSimulator());
     this.executor = executor;
@@ -127,10 +122,9 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
     providerService =
         new LocalProviderService(
             LocalProviderService.createRestProvider(ProviderUtils.getProviderBaseUrl(application)),
-            this.executor,
-            roadSnappedLocationProvider);
+            this.executor);
 
-    authTokenFactory = new TripAuthTokenFactory(application, executor, roadSnappedLocationProvider);
+    authTokenFactory = new TripAuthTokenFactory(application, executor);
 
     vehicleIdStore = new VehicleIdStore(context);
   }
@@ -240,11 +234,12 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
                               .build())
                       .getRidesharingVehicleReporter();
 
-              vehicleSettings = new VehicleSettings();
-              vehicleSettings.setVehicleId(extractVehicleId(vehicleModel.getName()));
-              vehicleSettings.setMaximumCapacity(vehicleModel.getMaximumCapacity());
-              vehicleSettings.setSupportedTripTypes(vehicleModel.getSupportedTripTypes());
-              vehicleSettings.setBackToBackEnabled(vehicleModel.getBackToBackEnabled());
+              vehicleSettings =
+                  new VehicleSettings(
+                      extractVehicleId(vehicleModel.getName()),
+                      vehicleModel.getBackToBackEnabled(),
+                      vehicleModel.getMaximumCapacity(),
+                      vehicleModel.getSupportedTripTypes());
 
               return true;
             },
@@ -304,6 +299,9 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
   /** Cleans up active resources prior to activity onDestroy, mainly to prevent memory leaks. */
   public void cleanUp() {
     stopVehiclePeriodicUpdate();
+
+    /** Clear existing API instance once we know it won't be needed. */
+    RidesharingDriverApi.clearInstance();
   }
 
   private void startVehiclePeriodicUpdate() {
@@ -460,14 +458,7 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
       return Futures.immediateFailedFuture(new IllegalStateException("Invalid trip status"));
     }
 
-    if (updatedStatus == TripStatus.ENROUTE_TO_INTERMEDIATE_DESTINATION) {
-      return providerService.updateTripStatusWithIntermediateDestinationIndex(
-          updatedState.tripId(),
-          updatedStatus.toString(),
-          updatedState.intermediateDestinationIndex());
-    } else {
-      return providerService.updateTripStatus(updatedState.tripId(), updatedStatus.toString());
-    }
+    return providerService.updateTripStatus(updatedState);
   }
 
   /** Sets presenter to the controller so it can invokes UI related callbacks. */
@@ -485,6 +476,8 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
   private void stopJourneySharing() {
     requireNonNull(vehicleReporter)
         .setLocationReportingInterval(DEFAULT_LOCATION_UPDATE_INTERVAL_SECONDS, SECONDS);
+
+    // The following two are the only required methods to clean up navigator state in between stops.
     navigator.stopGuidance();
     navigator.clearDestinations();
 

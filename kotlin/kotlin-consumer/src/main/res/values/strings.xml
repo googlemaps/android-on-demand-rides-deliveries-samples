@@ -39,6 +39,12 @@
   <string name="state_enroute_to_pickup" translatable="false">Driver is arriving at pickup</string>
   <!-- Driver arrived at pickup state [CHAR_LIMIT=50] -->
   <string name="state_arrived_at_pickup" translatable="false">Driver arrived at pickup</string>
+   <!-- Driver is picking up other rider [CHAR_LIMIT=50] -->
+  <string name="state_picking_up_other_rider" translatable="false">Driver is picking another rider up</string>
+  <!-- Driver is dropping off other rider [CHAR_LIMIT=50] -->
+  <string name="state_dropping_off_other_rider" translatable="false">Driver is dropping another rider off</string>
+  <!-- Driver is stopping for other rider [CHAR_LIMIT=50] -->
+  <string name="state_stopping_for_other_rider" translatable="false">Driver is stopping for another rider</string>
   <!-- Driver is completing another trip [CHAR_LIMIT=50] -->
   <string name="state_completing_another_trip" translatable="false">Your driver is completing another trip</string>
   <!-- Enroute to dropoff state [CHAR_LIMIT=50] -->
@@ -50,6 +56,9 @@
   <!-- Trip completed state [CHAR_LIMIT=50] -->
   <string name="state_end_of_trip" translatable="false">End of trip</string>
   <!-- End state titles. -->
+
+  <!--Label for the Share trip switch [CHAR_LIMIT=50] -->
+  <string name="shared_trip" translatable="false">Shared Trip</string>
 
   <!--Label for Trip Match [CHAR_LIMIT=50] -->
   <string name="trip_id_label" translatable="false">Trip Id: %1$s</string>

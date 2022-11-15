@@ -112,18 +112,17 @@
           android:textColor="@color/cardInfoText"
           android:textSize="14sp"
           app:layout_constraintStart_toStartOf="parent"
-          app:layout_constraintBottom_toTopOf="@+id/next_trip_id_label" />
+          app:layout_constraintBottom_toTopOf="@+id/matched_trip_ids_label" />
 
 
       <TextView
-          android:visibility="gone"
-          android:id="@+id/next_trip_id_label"
+          android:id="@+id/matched_trip_ids_label"
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
           android:layout_marginStart="@dimen/text_margin"
           android:layout_marginBottom="10dp"
           android:fontFamily="@font/roboto"
-          android:text="@string/next_trip_id_label"
+          android:text="@string/matched_trip_ids_label"
           android:textColor="@color/cardInfoText"
           android:textSize="14sp"
           app:layout_constraintStart_toStartOf="parent"

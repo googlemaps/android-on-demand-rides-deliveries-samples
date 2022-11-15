@@ -14,24 +14,22 @@
  */
 package com.google.mapsplatform.transportation.sample.driver.provider.service;
 
-import android.location.Location;
+import static com.google.mapsplatform.transportation.sample.driver.utils.VehicleUtils.DEFAULT_MAXIMUM_CAPACITY;
+import static com.google.mapsplatform.transportation.sample.driver.utils.VehicleUtils.DEFAULT_SUPPORTED_TRIP_TYPES;
+
 import android.util.Log;
-import com.google.android.libraries.navigation.RoadSnappedLocationProvider;
-import com.google.android.libraries.navigation.RoadSnappedLocationProvider.LocationListener;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
-import com.google.mapsplatform.transportation.sample.driver.config.DriverTripConfig;
 import com.google.mapsplatform.transportation.sample.driver.provider.request.TripUpdateBody;
 import com.google.mapsplatform.transportation.sample.driver.provider.request.VehicleSettings;
-import com.google.mapsplatform.transportation.sample.driver.provider.response.GetTripResponse;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.TokenResponse;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.TripModel;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.VehicleModel;
-import com.google.mapsplatform.transportation.sample.driver.provider.response.Waypoint.Point;
+import com.google.mapsplatform.transportation.sample.driver.state.TripState;
+import com.google.mapsplatform.transportation.sample.driver.state.TripStatus;
 import java.util.concurrent.Executor;
-import javax.annotation.Nullable;
+import retrofit2.HttpException;
 import retrofit2.Retrofit;
 import retrofit2.adapter.guava.GuavaCallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -42,27 +40,15 @@ public class LocalProviderService {
 
   private final RestProvider restProvider;
   private final Executor executor;
-  private final RoadSnappedLocationProvider roadSnappedLocationProvider;
 
-  public LocalProviderService(
-      RestProvider restProvider,
-      Executor executor,
-      RoadSnappedLocationProvider roadSnappedLocationProvider) {
+  public LocalProviderService(RestProvider restProvider, Executor executor) {
     this.restProvider = restProvider;
     this.executor = executor;
-    this.roadSnappedLocationProvider = roadSnappedLocationProvider;
   }
 
   /** Fetch JWT token from provider. */
   public ListenableFuture<TokenResponse> fetchAuthToken(String vehicleId) {
     return restProvider.getAuthToken(vehicleId);
-  }
-
-  /** Fetches a trip identified by 'tripId' from the sample provider service. */
-  public ListenableFuture<DriverTripConfig> fetchTrip(String tripId, String vehicleId) {
-    ListenableFuture<DriverTripConfig> tripConfigFuture = fetchAvailableTrip(tripId, vehicleId);
-    ListenableFuture<Location> roadSnappedLocationFuture = getRoadSnappedLocationFuture();
-    return mergeTripConfigWithRoadSnappedLocation(tripConfigFuture, roadSnappedLocationFuture);
   }
 
   /**
@@ -72,36 +58,43 @@ public class LocalProviderService {
    * @param vehicleId vehicle id to be registered.
    */
   public ListenableFuture<VehicleModel> registerVehicle(String vehicleId) {
-    return fetchOrCreateVehicle(vehicleId);
+    return Futures.catchingAsync(
+        restProvider.getVehicle(vehicleId),
+        HttpException.class,
+        (exception) -> {
+          if (isNotFoundHttpException(exception)) {
+            return restProvider.createVehicle(
+                new VehicleSettings(
+                    vehicleId,
+                    /* backToBackEnabled= */ false,
+                    DEFAULT_MAXIMUM_CAPACITY,
+                    DEFAULT_SUPPORTED_TRIP_TYPES));
+
+          } else {
+            return Futures.immediateFailedFuture(exception);
+          }
+        },
+        executor);
   }
 
   /**
-   * Updates the trip status on a remote provider.
+   * Updates the trip status/intermediateDestinationIndex on a remote provider.
    *
-   * @param tripId ID of the trip being updated.
-   * @param status Fleet-Engine compatible name of the status.
+   * @param tripState current state of the trip to update. Contains tripId, status, and intermediate
+   *     destination index. If the current trip status is {@code
+   *     ENROUTE_TO_INTERMEDIATE_DESTINATION}, it will include the intermediate destination index in
+   *     the request.
+   * @return the updated trip model from the provider.
    */
-  public ListenableFuture<TripModel> updateTripStatus(String tripId, String status) {
+  public ListenableFuture<TripModel> updateTripStatus(TripState tripState) {
     TripUpdateBody updateBody = new TripUpdateBody();
-    updateBody.setStatus(status);
+    updateBody.setStatus(tripState.tripStatus().toString());
 
-    return updateTrip(tripId, updateBody);
-  }
+    if (tripState.tripStatus() == TripStatus.ENROUTE_TO_INTERMEDIATE_DESTINATION) {
+      updateBody.setIntermediateDestinationIndex(tripState.intermediateDestinationIndex());
+    }
 
-  /**
-   * Updates the trip status/intermediateDstinationIndex on a remote provider.
-   *
-   * @param tripId ID of the trip being updated.
-   * @param status Fleet-Engine compatible name of the status.
-   * @param intermediateDestinationIndex Index pointing to the current intermediate destination.
-   */
-  public ListenableFuture<TripModel> updateTripStatusWithIntermediateDestinationIndex(
-      String tripId, String status, int intermediateDestinationIndex) {
-    TripUpdateBody updateBody = new TripUpdateBody();
-    updateBody.setStatus(status);
-    updateBody.setIntermediateDestinationIndex(intermediateDestinationIndex);
-
-    return updateTrip(tripId, updateBody);
+    return updateTrip(tripState.tripId(), updateBody);
   }
 
   /**
@@ -111,25 +104,18 @@ public class LocalProviderService {
    * @return Future that resolves to the updated 'VehicleModel'.
    */
   public ListenableFuture<VehicleModel> createOrUpdateVehicle(VehicleSettings vehicleSettings) {
-    SettableFuture<VehicleModel> resultFuture = SettableFuture.create();
+    return Futures.catchingAsync(
+        restProvider.updateVehicle(vehicleSettings.getVehicleId(), vehicleSettings),
+        HttpException.class,
+        (exception) -> {
+          if (isNotFoundHttpException(exception)) {
+            return restProvider.createVehicle(vehicleSettings);
 
-    Futures.addCallback(
-        restProvider.getVehicle(vehicleSettings.getVehicleId()),
-        new FutureCallback<VehicleModel>() {
-          @Override
-          public void onSuccess(VehicleModel vehicle) {
-            resultFuture.setFuture(
-                restProvider.updateVehicle(vehicleSettings.getVehicleId(), vehicleSettings));
-          }
-
-          @Override
-          public void onFailure(Throwable t) {
-            resultFuture.setFuture(restProvider.createVehicle(vehicleSettings));
+          } else {
+            return Futures.immediateFailedFuture(exception);
           }
         },
         executor);
-
-    return resultFuture;
   }
 
   private ListenableFuture<TripModel> updateTrip(String tripId, TripUpdateBody updateBody) {
@@ -164,109 +150,6 @@ public class LocalProviderService {
     return restProvider.getVehicle(vehicleId);
   }
 
-  private ListenableFuture<VehicleModel> fetchOrCreateVehicle(String vehicleId) {
-    SettableFuture<VehicleModel> resultFuture = SettableFuture.create();
-    ListenableFuture<VehicleModel> responseFuture = restProvider.getVehicle(vehicleId);
-    Futures.addCallback(
-        responseFuture,
-        new FutureCallback<VehicleModel>() {
-          @Override
-          public void onSuccess(VehicleModel vehicleModel) {
-            resultFuture.set(vehicleModel);
-          }
-
-          @Override
-          public void onFailure(Throwable t) {
-            VehicleSettings vehicleSettings = new VehicleSettings();
-            vehicleSettings.setVehicleId(vehicleId);
-
-            resultFuture.setFuture(restProvider.createVehicle(vehicleSettings));
-          }
-        },
-        executor);
-    return resultFuture;
-  }
-
-  private ListenableFuture<DriverTripConfig> mergeTripConfigWithRoadSnappedLocation(
-      ListenableFuture<DriverTripConfig> tripConfigFuture,
-      ListenableFuture<Location> roadSnappedLocationFuture) {
-    return Futures.whenAllSucceed(tripConfigFuture, roadSnappedLocationFuture)
-        .call(
-            () -> {
-              DriverTripConfig tripConfig = Futures.getDone(tripConfigFuture);
-              Location roadSnappedLocation = Futures.getDone(roadSnappedLocationFuture);
-              tripConfig.setVehicleLocation(getDriverPoint(roadSnappedLocation));
-              return tripConfig;
-            },
-            executor);
-  }
-
-  private ListenableFuture<DriverTripConfig> fetchAvailableTrip(String tripId, String vehicleId) {
-    ListenableFuture<GetTripResponse> availableTripFuture = restProvider.getAvailableTrip(tripId);
-
-    return Futures.transform(
-        availableTripFuture,
-        availableTripResponse -> {
-          TripModel availableTrip = availableTripResponse.getTripModel();
-
-          DriverTripConfig config = new DriverTripConfig();
-
-          config.setTripId(tripId);
-          config.setVehicleId(vehicleId);
-          config.setWaypoints(availableTrip.getWaypoints());
-
-          return config;
-        },
-        executor);
-  }
-
-  private ListenableFuture<Location> getRoadSnappedLocationFuture() {
-    SettableFuture<Location> locationFuture = SettableFuture.create();
-    LocationListener locationListener =
-        new LocationListener() {
-          @Override
-          public void onLocationChanged(Location location) {
-            locationFuture.set(location);
-          }
-
-          @Override
-          public void onRawLocationUpdate(Location location) {
-            // Ignore
-          }
-        };
-
-    Futures.addCallback(
-        locationFuture,
-        new FutureCallback<Location>() {
-          @Override
-          public void onSuccess(@Nullable Location result) {
-            roadSnappedLocationProvider.removeLocationListener(locationListener);
-          }
-
-          @Override
-          public void onFailure(Throwable t) {
-            locationFuture.setException(t);
-            roadSnappedLocationProvider.removeLocationListener(locationListener);
-          }
-        },
-        executor);
-    roadSnappedLocationProvider.addLocationListener(locationListener);
-
-    return locationFuture;
-  }
-
-  private static Point getDriverPoint(@Nullable Location location) {
-    if (location == null) {
-      throw new IllegalStateException("Location must be set for vehicle point configuration.");
-    }
-
-    Point vehiclePoint = new Point();
-    vehiclePoint.setLatitude(location.getLatitude());
-    vehiclePoint.setLongitude(location.getLongitude());
-
-    return vehiclePoint;
-  }
-
   /** Gets a Retrofit implementation of the Journey Sharing REST provider. */
   public static RestProvider createRestProvider(String baseUrl) {
     Retrofit retrofit =
@@ -277,5 +160,9 @@ public class LocalProviderService {
             .build();
 
     return retrofit.create(RestProvider.class);
+  }
+
+  private static boolean isNotFoundHttpException(HttpException httpException) {
+    return httpException.code() == 404;
   }
 }

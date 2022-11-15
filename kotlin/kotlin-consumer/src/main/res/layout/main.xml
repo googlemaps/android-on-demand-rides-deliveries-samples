@@ -42,6 +42,7 @@
       android:layout_height="match_parent"
       android:visibility="gone" />
   </FrameLayout>
+
   <androidx.constraintlayout.widget.Guideline
       android:id="@+id/guideline"
       android:layout_width="wrap_content"
@@ -137,7 +138,18 @@
           android:visibility="invisible"
           app:layout_constraintStart_toStartOf="@+id/guideline2"
           app:layout_constraintTop_toBottomOf="@+id/vehicleId" />
-
+       <Switch
+          android:id="@+id/is_shared_trip_type_switch"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:visibility="gone"
+          android:text="@string/shared_trip"
+          android:fontFamily="@font/roboto"
+          android:textColor="@color/primaryColor"
+          android:layout_marginTop="@dimen/text_margin_start_end"
+          android:layout_marginStart="@dimen/text_margin_start_end"
+          app:layout_constraintStart_toStartOf="parent"
+          app:layout_constraintTop_toTopOf="parent" />
       <Button
           android:id="@+id/actionButton"
           android:layout_width="0dp"

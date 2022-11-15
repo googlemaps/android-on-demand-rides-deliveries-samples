@@ -14,29 +14,15 @@
  */
 package com.google.mapsplatform.transportation.sample.kotlindriver
 
-import android.app.Application
 import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.AuthTokenContext
-import com.google.android.libraries.navigation.RoadSnappedLocationProvider
-import com.google.mapsplatform.transportation.sample.kotlindriver.provider.ProviderUtils
 import com.google.mapsplatform.transportation.sample.kotlindriver.provider.service.LocalProviderService
-import java.util.concurrent.ExecutionException
-import java.util.concurrent.Executor
+import kotlinx.coroutines.runBlocking
 
-internal class TripAuthTokenFactory(
-  application: Application,
-  executor: Executor,
-  roadSnappedLocationProvider: RoadSnappedLocationProvider
-) : AuthTokenContext.AuthTokenFactory {
+internal class TripAuthTokenFactory(private val providerService: LocalProviderService) :
+  AuthTokenContext.AuthTokenFactory {
   private var token: String? = null
   private var expiryTimeMs: Long = 0
   private var vehicleId: String? = null
-  private val providerService: LocalProviderService = LocalProviderService(
-    LocalProviderService.createRestProvider(
-      ProviderUtils.getProviderBaseUrl(application)
-    ),
-    executor,
-    roadSnappedLocationProvider
-  )
 
   override fun getToken(context: AuthTokenContext): String {
     val vehicleId = context.vehicleId!!
@@ -46,19 +32,17 @@ internal class TripAuthTokenFactory(
     return token!!
   }
 
-  private fun fetchNewToken(vehicleId: String) {
+  private fun fetchNewToken(vehicleId: String) = runBlocking {
     try {
-      val tokenResponse = providerService.fetchAuthToken(vehicleId).get()
+      val tokenResponse = providerService.fetchAuthToken(vehicleId)
       token = tokenResponse.token!!
 
       // The expiry time could be an hour from now, but just to try and avoid
       // passing expired tokens, we subtract 10 minutes from that time.
       val tenMinutesInMillis = (10 * 60 * 1000).toLong()
       expiryTimeMs = tokenResponse.expirationTimestamp.millis - tenMinutesInMillis
-      this.vehicleId = vehicleId
-    } catch (e: InterruptedException) {
-      throw RuntimeException("Could not get auth token", e)
-    } catch (e: ExecutionException) {
+      this@TripAuthTokenFactory.vehicleId = vehicleId
+    } catch (e: Exception) {
       throw RuntimeException("Could not get auth token", e)
     }
   }

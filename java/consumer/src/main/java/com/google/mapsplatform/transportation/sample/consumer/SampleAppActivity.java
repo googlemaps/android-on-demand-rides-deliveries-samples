@@ -192,6 +192,12 @@ public class SampleAppActivity extends AppCompatActivity
     return trip;
   }
 
+  /**
+   * In case there's an existing `journeySharingSession` object, it stops it and frees up its
+   * reference. This prevents any memory leaks and stops updates from `FleetEngine` into the SDK.
+   *
+   * <p>Call this method when you no longer need journey sharing, example: Activity `onDestroy`.
+   */
   @Override
   public void stopJourneySharing() {
     if (journeySharingSession != null) {
@@ -746,6 +752,12 @@ public class SampleAppActivity extends AppCompatActivity
   @Override
   protected void onDestroy() {
     super.onDestroy();
+
+    /**
+     * Apart from 'unregistering' the trip callback, stop journey sharing to cancel updates from
+     * 'Fleet Engine'.
+     */
     consumerViewModel.unregisterTripCallback();
+    stopJourneySharing();
   }
 }

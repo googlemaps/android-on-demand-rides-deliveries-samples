@@ -14,6 +14,9 @@
  */
 package com.google.mapsplatform.transportation.sample.driver.dialog;
 
+import static com.google.mapsplatform.transportation.sample.driver.utils.TripUtils.EXCLUSIVE_TRIP_TYPE;
+import static com.google.mapsplatform.transportation.sample.driver.utils.TripUtils.SHARED_TRIP_TYPE;
+
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.res.Resources;
@@ -114,18 +117,19 @@ public class VehicleDialogFragment extends DialogFragment {
 
                 ImmutableList.Builder<String> supportedTripTypes = ImmutableList.builder();
                 if (sharedTripTypeCheckbox.isChecked()) {
-                  supportedTripTypes.add("SHARED");
+                  supportedTripTypes.add(SHARED_TRIP_TYPE);
                 }
 
                 if (exclusiveTripTypeCheckbox.isChecked()) {
-                  supportedTripTypes.add("EXCLUSIVE");
+                  supportedTripTypes.add(EXCLUSIVE_TRIP_TYPE);
                 }
 
-                VehicleSettings settings = new VehicleSettings();
-                settings.setVehicleId(newVehicleId);
-                settings.setBackToBackEnabled(backToBackEnabled);
-                settings.setSupportedTripTypes(supportedTripTypes.build());
-                settings.setMaximumCapacity(maximumCapacity);
+                VehicleSettings settings =
+                    new VehicleSettings(
+                        newVehicleId,
+                        backToBackEnabled,
+                        maximumCapacity,
+                        supportedTripTypes.build());
 
                 listener.onResult(settings);
               }

@@ -26,6 +26,17 @@ public class VehicleSettings {
 
   private List<String> supportedTripTypes;
 
+  public VehicleSettings(
+      String vehicleId,
+      Boolean backToBackEnabled,
+      int maximumCapacity,
+      List<String> supportedTripTypes) {
+    this.vehicleId = vehicleId;
+    this.backToBackEnabled = backToBackEnabled;
+    this.maximumCapacity = maximumCapacity;
+    this.supportedTripTypes = supportedTripTypes;
+  }
+
   public String getVehicleId() {
     return vehicleId;
   }

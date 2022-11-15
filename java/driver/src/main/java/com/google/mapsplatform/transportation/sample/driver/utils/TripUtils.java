@@ -27,6 +27,10 @@ public final class TripUtils {
 
   public static final String DROP_OFF_WAYPOINT_TYPE = "DROP_OFF_WAYPOINT_TYPE";
 
+  public static final String EXCLUSIVE_TRIP_TYPE = "EXCLUSIVE";
+
+  public static final String SHARED_TRIP_TYPE = "SHARED";
+
   /**
    * Returns the initial accepted trip state.
    *

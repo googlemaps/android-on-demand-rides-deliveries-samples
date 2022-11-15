@@ -14,13 +14,11 @@
  */
 package com.google.mapsplatform.transportation.sample.kotlindriver.provider.service
 
-import com.google.common.util.concurrent.ListenableFuture
-import com.google.mapsplatform.transportation.sample.kotlindriver.provider.request.CreateVehicleBody
 import com.google.mapsplatform.transportation.sample.kotlindriver.provider.request.TripUpdateBody
-import com.google.mapsplatform.transportation.sample.kotlindriver.provider.response.GetTripResponse
+import com.google.mapsplatform.transportation.sample.kotlindriver.provider.request.VehicleSettings
 import com.google.mapsplatform.transportation.sample.kotlindriver.provider.response.TokenResponse
-import com.google.mapsplatform.transportation.sample.kotlindriver.provider.response.TripData
-import com.google.mapsplatform.transportation.sample.kotlindriver.provider.response.VehicleResponse
+import com.google.mapsplatform.transportation.sample.kotlindriver.provider.response.TripModel
+import com.google.mapsplatform.transportation.sample.kotlindriver.provider.response.VehicleModel
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -28,18 +26,16 @@ import retrofit2.http.PUT
 import retrofit2.http.Path
 
 interface RestProvider {
-  @GET("vehicle/{id}")
-  fun getVehicle(@Path("id") vehicle: String): ListenableFuture<VehicleResponse>
+  @GET("vehicle/{id}") suspend fun getVehicle(@Path("id") vehicle: String): VehicleModel
 
   @GET("token/driver/{vehicleId}")
-  fun getAuthToken(@Path("vehicleId") vehicleId: String): ListenableFuture<TokenResponse>
+  suspend fun getAuthToken(@Path("vehicleId") vehicleId: String): TokenResponse
 
-  @GET("trip/{tripId}")
-  fun getAvailableTrip(@Path("tripId") id: String): ListenableFuture<GetTripResponse>
+  @POST("vehicle/new") suspend fun createVehicle(@Body body: VehicleSettings): VehicleModel
 
-  @POST("vehicle/new")
-  fun createVehicle(@Body body: CreateVehicleBody): ListenableFuture<VehicleResponse>
+  @PUT("vehicle/{id}")
+  suspend fun updateVehicle(@Path("id") id: String, @Body body: VehicleSettings): VehicleModel
 
   @PUT("trip/{id}")
-  fun updateTrip(@Path("id") id: String, @Body body: TripUpdateBody): ListenableFuture<TripData>
+  suspend fun updateTrip(@Path("id") id: String, @Body body: TripUpdateBody): TripModel
 }

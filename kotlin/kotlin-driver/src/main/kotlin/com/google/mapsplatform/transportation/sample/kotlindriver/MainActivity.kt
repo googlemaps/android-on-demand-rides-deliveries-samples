@@ -15,7 +15,6 @@
 package com.google.mapsplatform.transportation.sample.kotlindriver
 
 import android.annotation.SuppressLint
-import android.app.Application
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -25,6 +24,7 @@ import android.widget.TextView
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
+import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.GoogleMap.CameraPerspective
 import com.google.android.libraries.mapsplatform.transportation.driver.api.ridesharing.RidesharingDriverApi
@@ -34,13 +34,14 @@ import com.google.android.libraries.navigation.Navigator
 import com.google.android.libraries.navigation.SupportNavigationFragment
 import com.google.android.material.snackbar.BaseTransientBottomBar
 import com.google.android.material.snackbar.Snackbar
-import com.google.common.util.concurrent.FutureCallback
-import com.google.common.util.concurrent.Futures
 import com.google.mapsplatform.transportation.sample.kotlindriver.dialog.VehicleDialogFragment
+import com.google.mapsplatform.transportation.sample.kotlindriver.provider.ProviderUtils
+import com.google.mapsplatform.transportation.sample.kotlindriver.provider.request.VehicleSettings
+import com.google.mapsplatform.transportation.sample.kotlindriver.provider.service.LocalProviderService
 import com.google.mapsplatform.transportation.sample.kotlindriver.state.TripStatus
 import java.net.ConnectException
-import java.util.Objects
 import java.util.concurrent.Executors
+import kotlinx.coroutines.launch
 
 /*
  * NOTE: BEFORE BUILDING THIS APPLICATION YOU MUST COPY THE GOOGLE NAVIGATION API
@@ -49,11 +50,11 @@ import java.util.concurrent.Executors
 /** Main activity for the DriverSDK test app. */
 class MainActivity : AppCompatActivity(), Presenter {
   private val executor = Executors.newCachedThreadPool()
-  private lateinit var vehicleIdStore: VehicleIdStore
+  private lateinit var localSettings: LocalSettings
   private lateinit var navFragment: SupportNavigationFragment
   private lateinit var simulationStatusText: TextView
   private lateinit var tripIdText: TextView
-  private lateinit var nextTripIdText: TextView
+  private lateinit var matchedTripIdsText: TextView
   private lateinit var textVehicleId: TextView
   private lateinit var actionButton: Button
   private lateinit var tripCard: CardView
@@ -62,21 +63,21 @@ class MainActivity : AppCompatActivity(), Presenter {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_main)
-    vehicleIdStore = VehicleIdStore(this)
+    localSettings = LocalSettings(this)
     simulationStatusText = findViewById(R.id.simulation_status)
     actionButton = findViewById(R.id.action_button)
     val editVehicleIdButton = findViewById<Button>(R.id.edit_button)
     editVehicleIdButton.setOnClickListener { onEditVehicleButtonClicked() }
     tripCard = findViewById(R.id.trip_card)
     tripIdText = findViewById(R.id.trip_id_label)
-    nextTripIdText = findViewById(R.id.next_trip_id_label)
+    matchedTripIdsText = findViewById(R.id.matched_trip_ids_label)
     textVehicleId = findViewById(R.id.menu_vehicle_id)
-    textVehicleId.text = vehicleIdStore.readOrDefault()
+    textVehicleId.text = localSettings.getVehicleId()
     setupNavFragment()
     updateActionButton(TRIP_VIEW_INITIAL_STATE, null)
     actionButton.setOnClickListener { onActionButtonClicked() }
     showTripId(VehicleController.NO_TRIP_ID)
-    showNextTripId(VehicleController.NO_TRIP_ID)
+    showMatchedTripIds(emptyList())
     // Ensure the screen stays on during navigation.
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     initializeSDKs()
@@ -89,14 +90,19 @@ class MainActivity : AppCompatActivity(), Presenter {
       this,
       object : NavigatorListener {
         override fun onNavigatorReady(navigator: Navigator) {
-          val app = applicationContext as Application
           vehicleController =
             VehicleController(
-              application,
               navigator,
-              Objects.requireNonNull(NavigationApi.getRoadSnappedLocationProvider(app)),
               executor,
-              this@MainActivity
+              context = this@MainActivity,
+              coroutineScope = this@MainActivity.lifecycleScope,
+              providerService =
+                LocalProviderService(
+                  LocalProviderService.createRestProvider(
+                    ProviderUtils.getProviderBaseUrl(application)
+                  ),
+                ),
+              localSettings,
             )
           vehicleController.setPresenter(this@MainActivity)
           initVehicleAndPollTrip()
@@ -110,27 +116,19 @@ class MainActivity : AppCompatActivity(), Presenter {
   }
 
   private fun initVehicleAndPollTrip() {
-    val app = applicationContext as Application
-    val future = vehicleController.initVehicleAndReporter(app)
-    Futures.addCallback(
-      future,
-      object : FutureCallback<Boolean?> {
-        override fun onSuccess(result: Boolean?) {}
-        @SuppressLint("ShowToast")
-        override fun onFailure(e: Throwable) {
-          if (e is ConnectException) {
-            Snackbar.make(
-                tripCard,
-                R.string.msg_provider_connection_error,
-                BaseTransientBottomBar.LENGTH_INDEFINITE
-              )
-              .setAction(R.string.button_retry) { initVehicleAndPollTrip() }
-              .show()
-          }
-        }
-      },
-      executor
-    )
+    lifecycleScope.launch {
+      try {
+        vehicleController.initVehicleAndReporter(application)
+      } catch (e: ConnectException) {
+        Snackbar.make(
+            tripCard,
+            R.string.msg_provider_connection_error,
+            BaseTransientBottomBar.LENGTH_INDEFINITE
+          )
+          .setAction(R.string.button_retry) { initVehicleAndPollTrip() }
+          .show()
+      }
+    }
   }
 
   private fun setupNavFragment() {
@@ -145,12 +143,16 @@ class MainActivity : AppCompatActivity(), Presenter {
   private fun onEditVehicleButtonClicked() {
     val fragment: VehicleDialogFragment =
       VehicleDialogFragment.newInstance(
-        vehicleIdStore.readOrDefault(),
+        localSettings,
+        vehicleController.vehicleSettings,
         object : VehicleDialogFragment.OnDialogResultListener {
-          override fun onResult(vehicleId: String) {
-            textVehicleId.text = vehicleId
-            vehicleIdStore.save(vehicleId)
-            vehicleController.initVehicleAndReporter(applicationContext as Application)
+          override fun onResult(vehicleSettings: VehicleSettings) {
+            textVehicleId.text = vehicleSettings.vehicleId
+            localSettings.saveVehicleId(vehicleSettings.vehicleId)
+
+            lifecycleScope.launch {
+              vehicleController.updateVehicleSettings(application, vehicleSettings)
+            }
           }
         }
       )
@@ -185,13 +187,12 @@ class MainActivity : AppCompatActivity(), Presenter {
     tripIdText.text = resources.getString(R.string.trip_id_label, noTripFoundText)
   }
 
-  override fun showNextTripId(tripId: String) {
-    if (tripId == VehicleController.NO_TRIP_ID) {
-      nextTripIdText.visibility = View.GONE
-      return
-    }
-    nextTripIdText.text = resources.getString(R.string.next_trip_id_label, tripId)
-    nextTripIdText.visibility = View.VISIBLE
+  override fun showMatchedTripIds(tripIds: List<String>) {
+    val text =
+      if (tripIds.isEmpty()) resources.getString(R.string.status_unknown)
+      else tripIds.joinToString()
+
+    matchedTripIdsText.text = resources.getString(R.string.matched_trip_ids_label, text)
   }
 
   override fun showTripStatus(status: TripStatus) {
@@ -219,9 +220,9 @@ class MainActivity : AppCompatActivity(), Presenter {
       TripStatus.ARRIVED_AT_PICKUP -> {
         simulationStatusText.setText(R.string.status_arrived_at_pickup)
         resourceId =
-          if (vehicleController.hasIntermediateDestinations())
+          if (vehicleController.isNextCurrentTripWaypointIntermediate()) {
             R.string.button_enroute_to_intermediate_stop
-          else R.string.button_enroute_to_dropoff
+          } else R.string.button_enroute_to_dropoff
         isCameraTilted = true
       }
       TripStatus.ENROUTE_TO_DROPOFF -> {
@@ -237,8 +238,9 @@ class MainActivity : AppCompatActivity(), Presenter {
       TripStatus.ARRIVED_AT_INTERMEDIATE_DESTINATION -> {
         simulationStatusText.setText(R.string.status_arrived_to_intermediate_location)
         resourceId =
-          if (vehicleController.isOnLastIntermediateDestination) R.string.button_enroute_to_dropoff
-          else R.string.button_enroute_to_intermediate_stop
+          if (vehicleController.isNextCurrentTripWaypointIntermediate()) {
+            R.string.button_enroute_to_intermediate_stop
+          } else R.string.button_enroute_to_dropoff
         isCameraTilted = true
       }
       TripStatus.COMPLETE -> {
@@ -255,6 +257,10 @@ class MainActivity : AppCompatActivity(), Presenter {
     tripCard.visibility = cardVisibility
     updateActionButton(buttonVisibility, resourceId)
     updateCameraPerspective(isCameraTilted)
+  }
+
+  override fun enableActionButton(enabled: Boolean) {
+    actionButton.isEnabled = enabled
   }
 
   override fun onDestroy() {
@@ -277,9 +283,9 @@ class MainActivity : AppCompatActivity(), Presenter {
         NavigationApi.ErrorCode.TERMS_NOT_ACCEPTED ->
           Log.w(
             TAG,
-            "Error loading Navigation API: User did not " + "accept the Navigation Terms of Use."
+            "Error loading Navigation API: User did not accept the Navigation Terms of Use."
           )
-        else -> Log.w(TAG, String.format("Error loading Navigation API: %d", errorCode))
+        else -> Log.w(TAG, "Error loading Navigation API: $errorCode")
       }
     }
   }

@@ -19,5 +19,4 @@ import com.google.gson.annotations.SerializedName
 /** Getting trip info after selecting drop-off pick-up locations. */
 class GetTripResponse(
   @SerializedName("trip") val trip: TripResponse? = null,
-  @SerializedName("routeToken") private val routeToken: String? = null
 )

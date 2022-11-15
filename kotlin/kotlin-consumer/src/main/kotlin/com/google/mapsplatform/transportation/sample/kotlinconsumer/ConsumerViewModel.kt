@@ -16,12 +16,11 @@
 
 package com.google.mapsplatform.transportation.sample.kotlinconsumer
 
-import android.app.Application
 import android.util.Log
-import androidx.core.content.ContextCompat
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.libraries.mapsplatform.transportation.consumer.managers.TripModel
 import com.google.android.libraries.mapsplatform.transportation.consumer.managers.TripModelCallback
@@ -30,30 +29,47 @@ import com.google.android.libraries.mapsplatform.transportation.consumer.model.T
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripName
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripWaypoint
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.VehicleLocation
-import com.google.common.util.concurrent.FutureCallback as FutureCallback1
-import com.google.common.util.concurrent.Futures
-import com.google.common.util.concurrent.ListenableFuture
-import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.ProviderUtils
+import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.model.CreateTripRequest
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.model.TripData
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.model.TripStatus
-import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.model.WaypointData
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.response.TripResponse
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.response.WaypointResponse
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.service.LocalProviderService
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.state.AppStates
 import java.lang.ref.WeakReference
 import java.net.ConnectException
-import java.util.concurrent.Executor
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
+import java.util.Timer
+import kotlin.concurrent.schedule
+import kotlin.concurrent.timerTask
+import kotlin.reflect.KProperty
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
+/** Defined to use 'MutableLiveData' as delegate. */
+private inline operator fun <T> MutableLiveData<T>.getValue(
+  thisObj: Any?,
+  property: KProperty<*>
+): T? = value
+
+private inline operator fun <T> MutableLiveData<T>.setValue(
+  thisObj: Any?,
+  property: KProperty<*>,
+  value: T
+) {
+  this.value = value
+}
 
 /**
  * ViewModel for the Consumer Sample application. It provides observables for the current
  * application status such as trip completed and journey sharing which it maintains using
  * StateChangeCallback. When in journey sharing it has observables for the details of the trip
  * including eta, distance remaining and waypoint data.
+ *
+ * @property providerService object used to communicate with the remote sample provider.
  */
-class ConsumerViewModel(application: Application) : AndroidViewModel(application) {
+class ConsumerViewModel(
+  private val providerService: LocalProviderService,
+) : ViewModel() {
   interface JourneySharingListener {
     /** Starts journey sharing rendering and return that [TripModel]. */
     fun startJourneySharing(tripData: TripData): TripModel
@@ -65,126 +81,129 @@ class ConsumerViewModel(application: Application) : AndroidViewModel(application
     fun updateCurrentLocation(latLang: LatLng)
   }
 
-  // LiveData for current application map state.
-  private val appState = MutableLiveData<Int>()
-
-  // LiveData for dropoff location.
-  private val pickupLocation = MutableLiveData<LatLng>()
-
-  // LiveData for pickup location.
-  private val dropoffLocation = MutableLiveData<LatLng>()
-
-  // LiveData for selected intermediate destinations. (multi-destination trips)
-  private val intermediateDestinations = MutableLiveData<List<LatLng>?>()
-
-  // LiveData of the current trip info from a trip refresh.
-  private val tripStatus = MutableLiveData<Int>()
-
-  // LiveData of the current trip Id.
-  private val tripId = MutableLiveData<String?>()
-
-  // LiveData of the remaining distance to the next waypoint.
-  private val remainingDistanceMeters = MutableLiveData<Int?>()
-
-  // LiveData of the ETA to the next waypoint.
-  private val nextWaypointEta = MutableLiveData<Long?>()
-
-  // Latest trip data including: time remaining, distance remaining and etc.
-  private val tripInfo = MutableLiveData<TripInfo?>()
-
-  // The current active trip, meant for create journey sharing session and observe session.
-  private val trip = MutableLiveData<TripModel>()
-
-  // LiveData containing a potential list of waypoints the driver is going through before the
-  // current trip (B2B)
-  private val previousTripWaypoints = MutableLiveData<List<TripWaypoint>?>()
-
   // Latest error message.
   val errorMessage = SingleLiveEvent<Int>()
-  private val providerService: LocalProviderService
-  private val executor = Executors.newCachedThreadPool()
-  private val mainExecutor: Executor
-  private val scheduledExecutor = Executors.newSingleThreadScheduledExecutor()
   private var journeySharingListener = WeakReference<JourneySharingListener?>(null)
 
-  /** Initializes the ConsumerApi and if successful initiates TripManager configuration. */
+  /** Checks if a trip is matched (i.e. vehicleId is present in the trip info. */
+  val isTripMatched: Boolean
+    get() = tripInfoLiveData.value?.vehicleId?.isNotEmpty() ?: false
+
+  /** Determines if the driver is currently working on another trip's waypoint. */
+  val isDriverInOtherTripWaypoint: Boolean
+    get() = otherTripWaypoints.isNotEmpty()
+
+  /** Current trip model. */
+  private var currentTripModel: TripModel? by MutableLiveData()
+
+  /** The selected pickup location. */
+  var pickupLocation: LatLng? by MutableLiveData()
+
+  /** The selected dropoff location. */
+  var dropoffLocation: LatLng? by MutableLiveData()
+
+  /** Represents whether the current trip is shared. */
+  var isSharedTripType: Boolean? by MutableLiveData(false)
+
+  /** LiveData for the list intermediate destinations selected for the trip. */
+  private val intermediateDestinationsLiveData = MutableLiveData<List<LatLng>>()
+
+  /** LiveData for the list of intermediate destinations selected for the trip. */
+  var intermediateDestinations: List<LatLng>
+    get() = intermediateDestinationsLiveData.value ?: emptyList()
+    private set(value) {
+      intermediateDestinationsLiveData.value = value
+    }
+
+  /** LiveData for the current trip [Trip.TripStatus] for each status change during the trip. */
+  val tripStatusLiveData = MutableLiveData<Int>()
+
+  /** LiveData for the current trip id. */
+  var tripIdLiveData = MutableLiveData<String?>()
+
+  /** LiveData for the distance in meters to the next waypoint. */
+  val remainingDistanceMetersLiveData = MutableLiveData<Int?>()
+
+  /** LiveData for the ETA to the next waypoint of the trip. */
+  val nextWaypointEtaLiveData = MutableLiveData<Long?>()
+
+  /** LiveData for the current trip TripInfo updated with each trip refresh. */
+  val tripInfoLiveData = MutableLiveData<TripInfo?>()
+
+  /** The current trip TripInfo updated with each trip refresh. */
+  val tripInfo: TripInfo?
+    get() = tripInfoLiveData.value
+
+  /** LiveData for the list of other trip waypoints (B2B/Shared pool support) */
+  val otherTripWaypointsLiveData = MutableLiveData<List<TripWaypoint>>(emptyList())
+
+  /** List of other trip waypoints (B2B/Shared pool support) */
+  private var otherTripWaypoints: List<TripWaypoint>
+    get() = otherTripWaypointsLiveData.value ?: emptyList()
+    set(value) {
+      otherTripWaypointsLiveData.value = value
+    }
+
+  /** LiveData for the current app state. */
+  val appStateLiveData = MutableLiveData<Int>()
+
+  /** Enum to identify the current app state. */
+  @AppStates
+  var appState: Int
+    get() = appStateLiveData.value ?: AppStates.UNINITIALIZED
+    set(value) {
+      appStateLiveData.value = value
+    }
+
+  /** Current waypoint type when driver is currently working on another trip. */
+  @TripWaypoint.WaypointType
+  val otherTripWaypointType: Int
+    get() =
+      if (!isDriverInOtherTripWaypoint) {
+        TripWaypoint.WaypointType.UNKNOWN
+      } else {
+        otherTripWaypoints.first()?.waypointType ?: TripWaypoint.WaypointType.UNKNOWN
+      }
+
   init {
-    providerService =
-      LocalProviderService(
-        LocalProviderService.createRestProvider(ProviderUtils.getProviderBaseUrl(application)),
-        executor,
-        scheduledExecutor
-      )
-    appState.value = AppStates.UNINITIALIZED
-    mainExecutor = ContextCompat.getMainExecutor(application)
+    appState = AppStates.UNINITIALIZED
   }
 
-  /** Creates a trip in the sample provider. */
-  fun startSingleExclusiveTrip() {
-    val singleExclusiveTrip: ListenableFuture<TripResponse> =
-      providerService.createSingleExclusiveTrip(
-        createWaypointData(
-          pickupLocation.value,
-          dropoffLocation.value,
-          intermediateDestinations.value
+  /** Creates a trip in the sample provider and waits for it to be matched. */
+  fun createTrip() =
+    viewModelScope.launch {
+      val createTripRequest =
+        CreateTripRequest(
+          pickup = pickupLocation,
+          dropoff = dropoffLocation,
+          intermediateDestinations = intermediateDestinations,
+          tripType = if (isSharedTripType == true) SHARED_TRIP_TYPE else EXCLUSIVE_TRIP_TYPE,
         )
-      )
-    handleCreateSingleExclusiveTripResponse(singleExclusiveTrip)
-  }
 
-  private fun handleCreateSingleExclusiveTripResponse(
-    singleExclusiveTrip: ListenableFuture<TripResponse>
-  ) {
+      try {
+        val tripResponse: TripResponse = providerService.createTrip(createTripRequest)
+        val tripName = tripResponse.tripName
 
-    Futures.addCallback(
-      singleExclusiveTrip,
-      object : FutureCallback1<TripResponse> {
-        override fun onSuccess(result: TripResponse?) {
-          result?.tripStatus ?: return
-          result.tripName ?: return
+        Log.i(TAG, "Successfully created trip $tripName.")
 
-          Log.i(TAG, String.format("Successfully created trip %s.", result.tripName))
-          tripStatus.postValue(TripStatus.parse(result.tripStatus))
-          val tripDataFuture: ListenableFuture<TripData> =
-            providerService.fetchMatchedTrip(result.tripName)
-          handleFetchMatchedTripResponse(tripDataFuture)
-        }
+        tripStatusLiveData.postValue(TripStatus.parse(tripResponse.tripStatus))
 
-        override fun onFailure(e: Throwable) {
-          Log.e(TAG, "Failed to create trip.", e)
-          setErrorMessage(e)
-        }
-      },
-      executor
-    )
-  }
+        val matchedTripResponse = providerService.fetchMatchedTrip(tripName)
 
-  private fun handleFetchMatchedTripResponse(tripDataFuture: ListenableFuture<TripData>) {
-    Futures.addCallback(
-      tripDataFuture,
-      object : FutureCallback1<TripData> {
-        override fun onSuccess(tripData: TripData?) {
-          tripData?.also { mainExecutor.execute { startJourneySharing(it) } }
-        }
+        Log.i(TAG, "Successfully matched trip $tripName.")
 
-        override fun onFailure(e: Throwable) {
-          Log.e(TAG, "Failed to match trip with a driver.", e)
-          setErrorMessage(e)
-        }
-      },
-      executor
-    )
-  }
+        executeOnMainThread { startJourneySharing(matchedTripResponse) }
+      } catch (e: Throwable) {
+        Log.e(TAG, "Failed to create trip.", e)
+        setErrorMessage(e)
+      }
+    }
 
   fun startJourneySharing(tripData: TripData) {
-    if (appState.value != AppStates.CONFIRMING_TRIP) {
+    if (appState != AppStates.CONFIRMING_TRIP) {
       Log.e(
         TAG,
-        String.format(
-          "App state should be `SELECTING_DROPOFF` but is %d, journey sharing cannot be" +
-            " started.",
-          appState.value
-        )
+        "App state should be `SELECTING_DROPOFF` but is $appState, journey sharing cannot be started.",
       )
       return
     }
@@ -194,8 +213,8 @@ class ConsumerViewModel(application: Application) : AndroidViewModel(application
       return
     }
     val tripModel = listener.startJourneySharing(tripData)
-    trip.value = tripModel
-    appState.value = AppStates.JOURNEY_SHARING
+    currentTripModel = tripModel
+    appState = AppStates.JOURNEY_SHARING
     tripModel.registerTripCallback(tripCallback)
   }
 
@@ -204,13 +223,14 @@ class ConsumerViewModel(application: Application) : AndroidViewModel(application
    * terminal or error state (COMPLETE, CANCELED, or UNKNOWN).
    */
   private fun updateTripStatus(status: Int) {
-    tripStatus.value = status
-    if (status == Trip.TripStatus.COMPLETE ||
+    tripStatusLiveData.value = status
+    if (
+      status == Trip.TripStatus.COMPLETE ||
         status == Trip.TripStatus.CANCELED ||
         status == Trip.TripStatus.UNKNOWN_TRIP_STATUS
     ) {
       stopJourneySharing()
-      intermediateDestinations.value = listOf()
+      intermediateDestinations = emptyList()
     }
   }
 
@@ -218,106 +238,35 @@ class ConsumerViewModel(application: Application) : AndroidViewModel(application
     unregisterTripCallback()
     val listener = journeySharingListener.get()
     listener?.stopJourneySharing()
-    scheduledExecutor.schedule(
-      { mainExecutor.execute { appState.setValue(AppStates.INITIALIZED) } },
-      IDLE_STATE_RESET_DELAY_SECONDS.toLong(),
-      TimeUnit.SECONDS
-    )
+
+    Timer()
+      .schedule(
+        timerTask { executeOnMainThread { appState = AppStates.INITIALIZED } },
+        IDLE_STATE_RESET_DELAY_MILISECONDS
+      )
   }
 
   /** Unregisters callback as part of cleanup. */
   fun unregisterTripCallback() {
-    val tripModel = trip.value
+    val tripModel = currentTripModel
     tripModel?.unregisterTripCallback(tripCallback)
-    tripInfo.value = null
+    tripInfoLiveData.value = null
   }
 
   fun setJourneySharingListener(journeySharingListener: JourneySharingListener?) {
     this.journeySharingListener = WeakReference(journeySharingListener)
   }
 
-  /** Set the app state. */
-  fun setState(@AppStates state: Int) {
-    appState.value = state
-  }
-
-  /** Returns the current AppState. */
-  fun getAppState(): LiveData<Int> {
-    return appState
-  }
-
-  /** Returns the current trip TripInfo updated with each trip refresh */
-  fun getTripInfo(): LiveData<TripInfo?> {
-    return tripInfo
-  }
-
-  /** Checks if a trip is matched (i.e. vehicleId is present in the trip info. */
-  val isTripMatched: Boolean
-    get() = tripInfo.value?.vehicleId?.isNotEmpty() ?: false
-
-  /**
-   * Checks if the next waypoint is part of the current user trip (if not, driver might be dropping
-   * someone else as part of a B2B trip). Only call when there's a trip assigned.
-   */
-  val isDriverCompletingAnotherTrip: Boolean
-    get() = with(getPreviousTripWaypoints().value) { this?.isNotEmpty() ?: false }
-
-  /** Returns the current trip [Trip.TripStatus] for each status change during the trip. */
-  fun getTripStatus(): LiveData<Int> {
-    return tripStatus
-  }
-
-  /** Returns ETA to the next waypoint of the trip. */
-  fun getNextWaypointEta(): LiveData<Long?> {
-    return nextWaypointEta
-  }
-
-  /** Returns the distance in meters to the next waypoint. */
-  fun getRemainingDistanceMeters(): LiveData<Int?> {
-    return remainingDistanceMeters
-  }
-
-  /** Returns the trip id. */
-  fun getTripId(): LiveData<String?> {
-    return tripId
-  }
-
-  /** Returns the list of previous trip waypoints (B2B support) */
-  fun getPreviousTripWaypoints(): LiveData<List<TripWaypoint>?> {
-    return previousTripWaypoints
-  }
-
   /** Updates the location container (pickup or dropoff) given by the current app state. */
   fun updateLocationPointForState(cameraLocation: LatLng) {
-    @AppStates val state = appState.value!!
-    if (state != AppStates.SELECTING_PICKUP && state != AppStates.SELECTING_DROPOFF) {
+    if (appState != AppStates.SELECTING_PICKUP && appState != AppStates.SELECTING_DROPOFF) {
       return
     }
-    if (state == AppStates.SELECTING_PICKUP) {
-      setPickupLocation(cameraLocation)
+    if (appState == AppStates.SELECTING_PICKUP) {
+      pickupLocation = cameraLocation
     } else {
-      setDropoffLocation(cameraLocation)
+      dropoffLocation = cameraLocation
     }
-  }
-
-  /** Set the selected dropoff location. */
-  fun setDropoffLocation(location: LatLng) {
-    dropoffLocation.value = location
-  }
-
-  /** Gets the selected dropoff location (or null if not selected) */
-  fun getDropoffLocation(): LatLng? {
-    return dropoffLocation.value
-  }
-
-  /** Set the selected pickup location. */
-  fun setPickupLocation(location: LatLng) {
-    pickupLocation.value = location
-  }
-
-  /** Gets the selected pickup location (or null if not selected) */
-  fun getPickupLocation(): LatLng? {
-    return pickupLocation.value
   }
 
   /**
@@ -325,41 +274,20 @@ class ConsumerViewModel(application: Application) : AndroidViewModel(application
    * destinations.
    */
   fun addIntermediateDestination() {
-    val destination = dropoffLocation.value ?: return
+    val destination = dropoffLocation ?: return
 
-    if (intermediateDestinations.value == null) {
-      intermediateDestinations.value = listOf()
-    }
-
-    intermediateDestinations.value =
+    intermediateDestinations =
       mutableListOf<LatLng>().apply {
-        addAll(intermediateDestinations.value!!)
+        addAll(intermediateDestinations)
         add(destination)
       }
   }
 
-  /** Retrieves the list of intermediate destinations added so far to the trip. */
-  fun getIntermediateDestinations(): List<LatLng>? {
-    return intermediateDestinations.value
-  }
-
   private fun setErrorMessage(e: Throwable) {
     if (e is ConnectException) {
-      mainExecutor.execute { errorMessage.setValue(R.string.msg_provider_connection_error) }
+      executeOnMainThread { errorMessage.setValue(R.string.msg_provider_connection_error) }
     }
   }
-
-  /** Creates a WaypointData object which contains all the locations used to create a trip. */
-  private fun createWaypointData(
-    pickup: LatLng?,
-    dropoff: LatLng?,
-    intermediateDestinations: List<LatLng>?
-  ): WaypointData =
-    WaypointData(
-      pickup = pickup,
-      dropoff = dropoff,
-      intermediateDestinations = intermediateDestinations ?: listOf()
-    )
 
   /** Trip callbacks registered during */
   private val tripCallback: TripModelCallback =
@@ -368,12 +296,12 @@ class ConsumerViewModel(application: Application) : AndroidViewModel(application
         tripInfo: TripInfo,
         distanceMeters: Int?
       ) {
-        remainingDistanceMeters.value = distanceMeters
+        remainingDistanceMetersLiveData.value = distanceMeters
       }
 
       override fun onTripUpdated(tripInfo: TripInfo) {
-        this@ConsumerViewModel.tripInfo.value = tripInfo
-        tripId.value = TripName.create(tripInfo.tripName).tripId
+        this@ConsumerViewModel.tripInfoLiveData.value = tripInfo
+        tripIdLiveData.value = TripName.create(tripInfo.tripName).tripId
       }
 
       override fun onTripStatusUpdated(tripInfo: TripInfo, @Trip.TripStatus status: Int) {
@@ -381,7 +309,7 @@ class ConsumerViewModel(application: Application) : AndroidViewModel(application
       }
 
       override fun onTripETAToNextWaypointUpdated(tripInfo: TripInfo, timestampMillis: Long?) {
-        nextWaypointEta.value = timestampMillis
+        nextWaypointEtaLiveData.value = timestampMillis
       }
 
       override fun onTripVehicleLocationUpdated(
@@ -403,21 +331,40 @@ class ConsumerViewModel(application: Application) : AndroidViewModel(application
           }
           waypoints.add(tripWaypoint)
         }
-        previousTripWaypoints.value = waypoints
+        otherTripWaypoints = waypoints
       }
     }
 
   private fun maybeUpdateCurrentLocation(vehicleLocation: VehicleLocation?) {
     val listener = journeySharingListener.get()
-    if (appState.value == AppStates.JOURNEY_SHARING && listener != null && vehicleLocation != null
-    ) {
+    if (appState == AppStates.JOURNEY_SHARING && listener != null && vehicleLocation != null) {
       listener.updateCurrentLocation(vehicleLocation.latLng)
     }
   }
 
+  /** Takes a function as parameter that gets executed in the Main thread. */
+  private fun executeOnMainThread(toExecute: () -> Unit) {
+    viewModelScope.launch(Dispatchers.Main) { toExecute() }
+  }
+
   companion object {
     /** Amount of time until an idle state reset should be delayed before applying changes. */
-    private const val IDLE_STATE_RESET_DELAY_SECONDS = 3
+    private const val IDLE_STATE_RESET_DELAY_MILISECONDS = 3000L
     private const val TAG = "ConsumerViewModel"
+    private const val SHARED_TRIP_TYPE = "SHARED"
+    private const val EXCLUSIVE_TRIP_TYPE = "EXCLUSIVE"
+  }
+
+  /**
+   * Factory class defined to allow creating 'ConsumerViewModel' instances passing a
+   * LocalProviderService.
+   */
+  class Factory(
+    private val localProviderService: LocalProviderService,
+  ) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+      return modelClass.cast(ConsumerViewModel(localProviderService))
+        ?: throw IllegalArgumentException("Illegal ViewModel class: $modelClass")
+    }
   }
 }

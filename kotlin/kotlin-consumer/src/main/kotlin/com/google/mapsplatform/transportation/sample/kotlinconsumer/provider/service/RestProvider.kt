@@ -14,8 +14,7 @@
  */
 package com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.service
 
-import com.google.common.util.concurrent.ListenableFuture
-import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.model.WaypointData
+import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.model.CreateTripRequest
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.response.GetTripResponse
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.response.TokenResponse
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.response.TripResponse
@@ -26,12 +25,10 @@ import retrofit2.http.Path
 
 /** Abstraction of expected REST endpoints implemented by a Provider. */
 interface RestProvider {
-  @POST("trip/new")
-  fun createSingleExclusiveTrip(@Body waypoint: WaypointData): ListenableFuture<TripResponse>
+  @POST("trip/new") suspend fun createTrip(@Body createTripRequest: CreateTripRequest): TripResponse
 
-  @GET("trip/{tripId}")
-  fun getTrip(@Path("tripId") tripId: String): ListenableFuture<GetTripResponse>
+  @GET("trip/{tripId}") suspend fun getTrip(@Path("tripId") tripId: String): GetTripResponse
 
   @GET("token/consumer/{tripId}")
-  fun getConsumerToken(@Path("tripId") tripId: String): ListenableFuture<TokenResponse>
+  suspend fun getConsumerToken(@Path("tripId") tripId: String): TokenResponse
 }

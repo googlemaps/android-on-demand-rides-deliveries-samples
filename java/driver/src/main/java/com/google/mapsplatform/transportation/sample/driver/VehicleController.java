@@ -65,7 +65,7 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
   private static final float SIMULATOR_SPEED_MULTIPLIER = 5.0f;
 
   // Faster location update interval during journey sharing.
-  private static final long JOURNEY_SHARING_LOCATION_UPDATE_INTERVAL_SECONDS = 1;
+  private static final long JOURNEY_SHARING_LOCATION_UPDATE_INTERVAL_SECONDS = 5;
 
   // Pattern of a FleetEngine full qualified a vehicle name.
   private static final Pattern VEHICLE_NAME_FORMAT =

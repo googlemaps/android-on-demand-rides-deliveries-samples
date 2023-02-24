@@ -422,7 +422,7 @@ class VehicleController(
     private const val SIMULATOR_SPEED_MULTIPLIER = 5.0f
 
     // Faster location update interval during journey sharing.
-    private const val JOURNEY_SHARING_LOCATION_UPDATE_INTERVAL_SECONDS: Long = 1
+    private const val JOURNEY_SHARING_LOCATION_UPDATE_INTERVAL_SECONDS: Long = 5
 
     // Pattern of a FleetEngine full qualified a vehicle name.
     private val VEHICLE_NAME_FORMAT = Pattern.compile("providers/(.*)/vehicles/(.*)")

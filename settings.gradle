@@ -12,6 +12,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+    }
+}
+
+plugins {
+    id("com.google.cloud.artifactregistry.gradle-plugin") version "2.2.1"
+}
+
 include 'java:consumer'
 include 'java:driver'
 include 'kotlin:kotlin-consumer'

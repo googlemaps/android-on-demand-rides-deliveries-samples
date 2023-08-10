@@ -15,7 +15,7 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 project.ext {
     consumerSdkVersion = "1.99.0"
-    driverSdkVersion = "4.5.0"
+    driverSdkVersion = "4.99.0"
     autoValueVersion = "1.8.2"
     appCompatVersion = "1.4.0"
     constraintlayoutVersion = "2.1.2"

@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 include 'java:consumer'
-//include 'java:driver'
-//include 'kotlin:kotlin-consumer'
-//include 'kotlin:kotlin-driver'
+include 'java:driver'
+include 'kotlin:kotlin-consumer'
+include 'kotlin:kotlin-driver'
 rootProject.name = "On-demand rides and deliveries samples"

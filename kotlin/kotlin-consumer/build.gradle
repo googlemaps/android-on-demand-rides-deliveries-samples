@@ -15,16 +15,14 @@
 
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-android-extensions'
 apply plugin: 'com.google.android.libraries.mapsplatform.secrets-gradle-plugin'
-
 
 project.ext {
     autoValueVersion = "1.8.2"
 }
 
 android {
-    compileSdkVersion 31
+    compileSdkVersion 33
     buildToolsVersion "30.0.2"
 
     defaultConfig {

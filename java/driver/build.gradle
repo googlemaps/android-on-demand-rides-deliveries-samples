@@ -12,10 +12,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+plugins {
+    id "com.google.cloud.artifactregistry.gradle-plugin" version "2.1.5"
+}
+
+repositories {
+    maven {
+        url "artifactregistry://us-west2-maven.pkg.dev/gmp-artifacts/transportation"
+    }
+}
 
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-android-extensions'
 apply plugin: 'com.google.android.libraries.mapsplatform.secrets-gradle-plugin'
 
 project.ext {
@@ -23,7 +31,7 @@ project.ext {
 }
 
 android {
-    compileSdkVersion 31
+    compileSdkVersion 33
     buildToolsVersion "30.0.2"
 
     defaultConfig {
@@ -60,6 +68,7 @@ dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
     api "com.google.auto.value:auto-value-annotations:$autoValueVersion"
     annotationProcessor "com.google.auto.value:auto-value:$autoValueVersion"
+    implementation "com.google.android.maps:navsdk:4.99.0"
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
     implementation "com.google.code.gson:gson:$gsonVersion"
     implementation "androidx.core:core:$androidxCoreVersion"

@@ -23,7 +23,7 @@ project.ext {
 }
 
 android {
-    compileSdkVersion 31
+    compileSdkVersion 33
     buildToolsVersion "30.0.2"
 
     defaultConfig {
@@ -61,6 +61,7 @@ android {
 
 dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
+    implementation "com.google.android.libraries.navigation:navigation:5.0.0"
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
     implementation "com.google.code.gson:gson:$gsonVersion"
     implementation "androidx.core:core:$androidxCoreVersion"

@@ -27,7 +27,7 @@ android {
 
     defaultConfig {
         applicationId "com.google.mapsplatform.transportation.sample.kotlindriver"
-        minSdkVersion 21
+        minSdkVersion 23
         targetSdkVersion 31
         versionCode 1
         versionName "1.0"

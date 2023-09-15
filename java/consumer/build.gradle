@@ -70,7 +70,7 @@ dependencies {
     implementation "androidx.core:core-ktx:$androidxCoreVersion"
     implementation "androidx.appcompat:appcompat:$appCompatVersion"
     implementation "androidx.constraintlayout:constraintlayout:$constraintlayoutVersion"
-    implementation "androidx.cardview:cardview:cardViewVersion"
+    implementation "androidx.cardview:cardview:$cardViewVersion"
     implementation "com.google.android.gms:play-services-maps:$playServicesMapVesion"
     implementation "com.google.android.gms:play-services-location:$gmsLocationVersion"
     implementation "com.google.android.gms:play-services-tasks:$gmsTasksVersion"

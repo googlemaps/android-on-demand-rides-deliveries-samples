@@ -47,16 +47,6 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
-
-    testOptions {
-        unitTests {
-            includeAndroidResources = true
-        }
-    }
-
-    lintOptions {
-        abortOnError false
-    }
 }
 
 dependencies {
@@ -85,7 +75,4 @@ dependencies {
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$anroidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$espressoVersion"
-    testImplementation "com.google.truth:truth:$truthVersion"
-    testImplementation "org.mockito:mockito-core:$mockitoVersion"
-    testImplementation "org.mockito:mockito-inline:$mockitoVersion"
 }

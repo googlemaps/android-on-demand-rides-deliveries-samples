@@ -23,11 +23,7 @@ project.ext {
 
 android {
     compileSdkVersion 33
-<<<<<<< HEAD
     buildToolsVersion "30.0.3"
-=======
-    buildToolsVersion "30.0.2"
->>>>>>> main
 
     defaultConfig {
         applicationId "com.google.mapsplatform.transportation.sample.kotlindriver"
@@ -61,10 +57,6 @@ android {
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
     }
-
-    lintOptions {
-        abortOnError false
-    }
 }
 
 dependencies {
@@ -90,7 +82,7 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$ktCouroutinesVersion"
     testImplementation "junit:junit:$junitVersion"
     testImplementation "com.google.truth:truth:$truthVersion"
-    testImplementation "org.mockito.kotlin:mockito-kotlin:$mockitoKotlinVersion"
+    testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin:$mockitoKotlinVersion"
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlinTestJunitVersion"
     testImplementation "org.mockito:mockito-core:$mockitoVersion"
     testImplementation "org.mockito:mockito-inline:$mockitoVersion"

@@ -57,10 +57,6 @@ android {
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
     }
-
-    lintOptions {
-        abortOnError false
-    }
 }
 
 dependencies {
@@ -91,7 +87,7 @@ dependencies {
     testImplementation "androidx.test.espresso:espresso-core:$espressoVersion"
     testImplementation "com.google.truth:truth:$truthVersion"
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlinTestJunitVersion"
-    testImplementation "org.mockito.kotlin:mockito-kotlin:$mockitoKotlinVersion"
+    testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin:$mockitoKotlinVersion"
     testImplementation "androidx.test.espresso:espresso-core:$espressoVersion"
     testImplementation "org.mockito:mockito-core:$mockitoVersion"
     testImplementation "org.mockito:mockito-inline:$mockitoVersion"

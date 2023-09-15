@@ -53,17 +53,13 @@ android {
             includeAndroidResources = true
         }
     }
-
-    lintOptions {
-        abortOnError false
-    }
 }
 
 dependencies {
+    implementation fileTree(dir: "libs", include: ["*.jar"])
+    api "com.google.auto.value:auto-value-annotations:$autoValueVersion"
     annotationProcessor "com.google.auto.value:auto-value:$autoValueVersion"
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:$desugarJdkLibsVersion"
-    api "com.google.auto.value:auto-value-annotations:$autoValueVersion"
-    implementation fileTree(dir: "libs", include: ["*.jar"])
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
     implementation "com.google.code.gson:gson:$gsonVersion"
     implementation "androidx.core:core:$androidxCoreVersion"

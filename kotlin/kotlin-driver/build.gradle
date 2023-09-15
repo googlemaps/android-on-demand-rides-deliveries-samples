@@ -64,7 +64,7 @@ dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
     implementation "com.google.android.libraries.navigation:navigation:5.0.0"
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
-    implementation "com.google.code.gson:gson:gsonVersion"
+    implementation "com.google.code.gson:gson:$gsonVersion"
     implementation "androidx.core:core:$androidxCoreVersion"
     implementation "androidx.appcompat:appcompat:$appCompatVersion"
     implementation "androidx.constraintlayout:constraintlayout:$constraintlayoutVersion"

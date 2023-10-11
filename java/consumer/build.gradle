@@ -51,7 +51,7 @@ android {
 
 dependencies {
     annotationProcessor "com.google.auto.value:auto-value:$autoValueVersion"
-    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:$desugarJdkLibsVersion"
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs_nio:$desugarJdkLibsVersion"
     api "com.google.auto.value:auto-value-annotations:$autoValueVersion"
     implementation fileTree(dir: "libs", include: ["*.jar"])
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"

@@ -46,7 +46,7 @@ project.ext {
     kotlinTestJunitVersion = "1.4.32"
     ktCouroutinesVersion = "1.6.0"
     lifecycleVersion = "2.4.0"
-    desugarJdkLibsVersion = "1.2.2"
+    desugarJdkLibsVersion = "2.0.3"
 }
 
 buildscript {
@@ -54,9 +54,13 @@ buildscript {
     repositories {
         google()
         mavenCentral()
+        maven {
+            url = uri("https://storage.googleapis.com/r8-releases/raw")
+        }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:7.3.0'
+        classpath 'com.android.tools:r8:8.0.46'
+        classpath 'com.android.tools.build:gradle:7.4.1'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
         classpath "com.google.android.libraries.mapsplatform.secrets-gradle-plugin:secrets-gradle-plugin:2.0.0"
 

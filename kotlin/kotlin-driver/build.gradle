@@ -79,6 +79,7 @@ dependencies {
     implementation "com.google.android.libraries.mapsplatform.transportation:transportation-driver:$driverSdkVersion"
     implementation "androidx.lifecycle:lifecycle-runtime-ktx:$lifecycleVersion"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$ktCouroutinesVersion"
+    implementation "org.chromium.net:cronet-fallback:$cronetFallbackVersion"
     testImplementation "junit:junit:$junitVersion"
     testImplementation "com.google.truth:truth:$truthVersion"
     testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin:$mockitoKotlinVersion"

@@ -14,7 +14,7 @@
  */
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 project.ext {
-    consumerSdkVersion = "2.0.0"
+    consumerSdkVersion = "2.1.0"
     driverSdkVersion = "5.0.0"
     autoValueVersion = "1.8.2"
     appCompatVersion = "1.4.0"
@@ -47,6 +47,7 @@ project.ext {
     ktCouroutinesVersion = "1.6.0"
     lifecycleVersion = "2.4.0"
     desugarJdkLibsVersion = "2.0.3"
+    cronetFallbackVersion = "119.6045.31"
 }
 
 buildscript {

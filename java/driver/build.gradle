@@ -77,6 +77,7 @@ dependencies {
     implementation "com.squareup.retrofit2:adapter-guava:$retrofit2Version"
     implementation "org.checkerframework:checker-qual:$checkerVersion"
     implementation "com.google.android.libraries.mapsplatform.transportation:transportation-driver:$driverSdkVersion"
+    implementation "org.chromium.net:cronet-fallback:$cronetFallbackVersion"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$anroidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$espressoVersion"

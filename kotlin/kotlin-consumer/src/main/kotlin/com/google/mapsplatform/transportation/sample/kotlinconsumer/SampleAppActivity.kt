@@ -243,20 +243,22 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
     googleMap?.setOnCameraIdleListener(
       GoogleMap.OnCameraIdleListener {
         val cameraPosition = googleMap?.cameraPosition ?: return@OnCameraIdleListener
-
-        if (
-          consumerViewModel.appState != AppStates.SELECTING_DROPOFF &&
-            consumerViewModel.appState != AppStates.SELECTING_PICKUP
-        ) {
-          return@OnCameraIdleListener
-        }
-
         val cameraLocation = cameraPosition.target
         val terminalLocation = TerminalLocation.create(cameraLocation)
         consumerViewModel.updateLocationPointForState(cameraLocation)
         updateMarkerBasedOnState(terminalLocation)
+
+        // Re-enable the button after camera is idle
+        actionButton.isEnabled = true
+        updateActionButtonAppearance()
       }
     )
+
+    // Disable the action button when the camera starts moving.
+    googleMap?.setOnCameraMoveStartedListener {
+      actionButton.isEnabled = false
+      updateActionButtonAppearance()
+    }
   }
 
   /**
@@ -579,6 +581,14 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
     if (consumerViewModel.appState == AppStates.JOURNEY_SHARING) {
       drawJourneySharingStateMarkers(waypoints)
     }
+  }
+
+  private fun updateActionButtonAppearance() {
+    val backgroundColor = if (actionButton.isEnabled) R.color.actionable else R.color.disabled
+    DrawableCompat.setTint(
+      actionButton.background,
+      ContextCompat.getColor(this, backgroundColor)
+    )
   }
 
   /** Renders a polyline representing all the points contained for the given trip. */

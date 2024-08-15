@@ -251,18 +251,33 @@ public class SampleAppActivity extends AppCompatActivity
                 return;
               }
 
-              @AppStates int state = consumerViewModel.getAppState().getValue();
-              if (state != AppStates.SELECTING_DROPOFF && state != AppStates.SELECTING_PICKUP) {
-                return;
-              }
-
               LatLng cameraLocation = cameraPosition.target;
               TerminalLocation terminalLocation = TerminalLocation.create(cameraLocation);
 
               consumerViewModel.updateLocationPointForState(cameraLocation);
               updateMarkerBasedOnState(terminalLocation);
+
+              // *** Enable the action button when the camera is idle ***
+              actionButton.setEnabled(true);
+              updateActionButtonAppearance();
+            });
+
+    // *** Disable the action button when the camera starts moving ***
+    requireNonNull(googleMap)
+            .setOnCameraMoveStartedListener(reason -> {
+              actionButton.setEnabled(false);
+              updateActionButtonAppearance();
             });
   }
+
+  private void updateActionButtonAppearance() {
+    // *** Use ternary operator to simplify color selection ***
+    int backgroundColorResource = actionButton.isEnabled() ? R.color.actionable : R.color.disabled;
+
+    Drawable roundedButton = actionButton.getBackground();
+    DrawableCompat.setTint(roundedButton, ContextCompat.getColor(this, backgroundColorResource));
+  }
+
 
   /**
    * Updates the current marker (depending on app state) to the given location. Ex: when app state

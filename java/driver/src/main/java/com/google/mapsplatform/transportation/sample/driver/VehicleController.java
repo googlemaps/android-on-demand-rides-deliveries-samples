@@ -22,8 +22,8 @@ import android.content.Context;
 import android.util.Log;
 import androidx.core.content.ContextCompat;
 import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.DriverContext;
-import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.DriverContext.StatusListener.StatusCode;
-import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.DriverContext.StatusListener.StatusLevel;
+import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.DriverContext.DriverStatusListener.StatusCode;
+import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.DriverContext.DriverStatusListener.StatusLevel;
 import com.google.android.libraries.mapsplatform.transportation.driver.api.ridesharing.RidesharingDriverApi;
 import com.google.android.libraries.mapsplatform.transportation.driver.api.ridesharing.vehiclereporter.RidesharingVehicleReporter;
 import com.google.android.libraries.mapsplatform.transportation.driver.api.ridesharing.vehiclereporter.RidesharingVehicleReporter.VehicleState;
@@ -93,7 +93,7 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
       Executors.newSingleThreadScheduledExecutor();
   private final Executor sequentialExecutor;
   private final VehicleSimulator vehicleSimulator;
-  private final VehicleIdStore vehicleIdStore;
+  private final LocalSettings localSettings;
 
   private VehicleStateService vehicleStateService;
 
@@ -111,22 +111,32 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
 
   private Map<String, TripState> tripStates = new HashMap<>();
 
+  /**
+   * Default constructor for {@link VehicleController}.
+   *
+   * @param navigator instance of {@link Navigator} that will provide guidance for driver.
+   * @param executor provides methods to manage asynchronous task within this instance.
+   * @param context {@link Context} instance in which this controller is hosted.
+   * @param providerService provides methods that allow the controller to talk to the remove
+   *     provider service.
+   * @param localSettings repository for settings that should be stored locally within the
+   *     application.
+   */
   public VehicleController(
-      Application application, Navigator navigator, ExecutorService executor, Context context) {
+      Navigator navigator,
+      ExecutorService executor,
+      Context context,
+      LocalProviderService providerService,
+      LocalSettings localSettings) {
     this.navigator = navigator;
-    vehicleSimulator = new VehicleSimulator(navigator.getSimulator());
+    this.providerService = providerService;
+    this.localSettings = localSettings;
     this.executor = executor;
+
+    vehicleSimulator = new VehicleSimulator(navigator.getSimulator(), localSettings);
     sequentialExecutor = MoreExecutors.newSequentialExecutor(executor);
     mainExecutor = ContextCompat.getMainExecutor(context);
-
-    providerService =
-        new LocalProviderService(
-            LocalProviderService.createRestProvider(ProviderUtils.getProviderBaseUrl(application)),
-            this.executor);
-
-    authTokenFactory = new TripAuthTokenFactory(application, executor);
-
-    vehicleIdStore = new VehicleIdStore(context);
+    authTokenFactory = new TripAuthTokenFactory(providerService);
   }
 
   @Override
@@ -226,11 +236,11 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
                           DriverContext.builder(application)
                               .setNavigator(requireNonNull(navigator))
                               .setProviderId(ProviderUtils.getProviderId(application))
-                              .setVehicleId(vehicleIdStore.readOrDefault())
+                              .setVehicleId(localSettings.getVehicleId())
                               .setAuthTokenFactory(authTokenFactory)
                               .setRoadSnappedLocationProvider(
                                   NavigationApi.getRoadSnappedLocationProvider(application))
-                              .setStatusListener(VehicleController::logLocationUpdate)
+                              .setDriverStatusListener(VehicleController::logLocationUpdate)
                               .build())
                       .getRidesharingVehicleReporter();
 
@@ -279,7 +289,7 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
         new FutureCallback<VehicleModel>() {
           @Override
           public void onSuccess(VehicleModel vehicleModel) {
-            vehicleIdStore.save(extractVehicleId(vehicleModel.getName()));
+            localSettings.saveVehicleId(extractVehicleId(vehicleModel.getName()));
           }
 
           @Override
@@ -310,7 +320,7 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
     }
 
     vehicleStateService =
-        new VehicleStateService(providerService, vehicleIdStore.readOrDefault(), this);
+        new VehicleStateService(providerService, localSettings.getVehicleId(), this);
 
     vehicleStateService.startAsync();
   }
@@ -324,14 +334,14 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
   /** Initialize a vehicle. */
   private ListenableFuture<VehicleModel> initVehicle() {
     ListenableFuture<VehicleModel> vehicleModelFuture =
-        providerService.registerVehicle(vehicleIdStore.readOrDefault());
+        providerService.registerVehicle(localSettings.getVehicleId());
 
     Futures.addCallback(
         vehicleModelFuture,
         new FutureCallback<VehicleModel>() {
           @Override
           public void onSuccess(VehicleModel vehicleModel) {
-            vehicleIdStore.save(extractVehicleId(vehicleModel.getName()));
+            localSettings.saveVehicleId(extractVehicleId(vehicleModel.getName()));
           }
 
           @Override
@@ -547,11 +557,15 @@ public class VehicleController implements VehicleStateService.VehicleStateListen
   }
 
   private static void logLocationUpdate(
-      StatusLevel statusLevel, StatusCode statusCode, String statusMsg) {
+      StatusLevel statusLevel, StatusCode statusCode, String statusMsg, @Nullable Throwable cause) {
     String message = "Location update: " + statusLevel + " " + statusCode + ": " + statusMsg;
 
     if (statusLevel == StatusLevel.ERROR) {
-      Log.e(TAG, message);
+      if (cause == null) {
+        Log.e(TAG, message);
+      } else {
+        Log.e(TAG, message + " cause: " + cause.getMessage());
+      }
     } else {
       Log.i(TAG, message);
     }

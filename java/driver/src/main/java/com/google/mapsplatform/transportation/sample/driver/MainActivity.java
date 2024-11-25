@@ -15,7 +15,6 @@
 package com.google.mapsplatform.transportation.sample.driver;
 
 import android.annotation.SuppressLint;
-import android.app.Application;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -38,6 +37,8 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mapsplatform.transportation.sample.driver.dialog.VehicleDialogFragment;
+import com.google.mapsplatform.transportation.sample.driver.provider.ProviderUtils;
+import com.google.mapsplatform.transportation.sample.driver.provider.service.LocalProviderService;
 import com.google.mapsplatform.transportation.sample.driver.state.TripStatus;
 import java.net.ConnectException;
 import java.util.List;
@@ -57,7 +58,7 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
 
   private final ExecutorService executor = Executors.newCachedThreadPool();
 
-  private VehicleIdStore vehicleIdStore;
+  private LocalSettings localSettings;
   private SupportNavigationFragment navFragment;
   private TextView simulationStatusText;
   private TextView tripIdText;
@@ -66,13 +67,20 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
   private Button actionButton;
   private CardView tripCard;
   private VehicleController vehicleController;
+  private LocalProviderService localProviderService;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
 
-    vehicleIdStore = new VehicleIdStore(this);
+    localProviderService =
+        new LocalProviderService(
+            LocalProviderService.createRestProvider(
+                ProviderUtils.getProviderBaseUrl(getApplication())),
+            executor);
+
+    localSettings = new LocalSettings(this);
     simulationStatusText = findViewById(R.id.simulation_status);
     actionButton = findViewById(R.id.action_button);
     Button editVehicleIdButton = findViewById(R.id.edit_button);
@@ -81,7 +89,7 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
     tripIdText = findViewById(R.id.trip_id_label);
     matchedTripIdsText = findViewById(R.id.matched_trip_ids_label);
     textVehicleId = findViewById(R.id.menu_vehicle_id);
-    textVehicleId.setText(vehicleIdStore.readOrDefault());
+    textVehicleId.setText(localSettings.getVehicleId());
     setupNavFragment();
     updateActionButton(TRIP_VIEW_INITIAL_STATE, null);
     actionButton.setOnClickListener(this::onActionButtonClicked);
@@ -104,9 +112,10 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
         new NavigationApi.NavigatorListener() {
           @Override
           public void onNavigatorReady(Navigator navigator) {
-            Application app = (Application) getApplicationContext();
             vehicleController =
-                new VehicleController(getApplication(), navigator, executor, MainActivity.this);
+                new VehicleController(
+                    navigator, executor, MainActivity.this, localProviderService, localSettings);
+
             vehicleController.setPresenter(MainActivity.this);
             initVehicleAndPollTrip();
           }
@@ -119,8 +128,8 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
   }
 
   private void initVehicleAndPollTrip() {
-    Application app = (Application) getApplicationContext();
-    ListenableFuture<Boolean> future = vehicleController.initVehicleAndReporter(app);
+    ListenableFuture<Boolean> future = vehicleController.initVehicleAndReporter(getApplication());
+
     Futures.addCallback(
         future,
         new FutureCallback<Boolean>() {
@@ -153,13 +162,12 @@ public final class MainActivity extends AppCompatActivity implements Presenter {
   private void onEditVehicleButtonClicked(View view) {
     VehicleDialogFragment fragment =
         VehicleDialogFragment.newInstance(
-            vehicleIdStore.readOrDefault(),
+            localSettings,
             vehicleController.getVehicleSettings(),
             updatedVehicleSettings -> {
               textVehicleId.setText(updatedVehicleSettings.getVehicleId());
 
-              vehicleController.updateVehicleSettings(
-                  (Application) getApplicationContext(), updatedVehicleSettings);
+              vehicleController.updateVehicleSettings(getApplication(), updatedVehicleSettings);
             });
 
     fragment.show(getSupportFragmentManager(), "VehicleInfoDialog");

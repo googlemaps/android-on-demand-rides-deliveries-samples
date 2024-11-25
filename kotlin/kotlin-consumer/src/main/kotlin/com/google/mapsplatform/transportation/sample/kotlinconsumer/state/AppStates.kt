@@ -15,11 +15,11 @@
 package com.google.mapsplatform.transportation.sample.kotlinconsumer.state
 
 import androidx.annotation.IntDef
-import java.lang.annotation.Retention
-import java.lang.annotation.RetentionPolicy
+import kotlin.annotation.AnnotationRetention
+import kotlin.annotation.Retention
 
 /** Indicates different app states. */
-@Retention(RetentionPolicy.SOURCE)
+@Retention(AnnotationRetention.SOURCE)
 @IntDef(
   AppStates.UNINITIALIZED,
   AppStates.INITIALIZED,

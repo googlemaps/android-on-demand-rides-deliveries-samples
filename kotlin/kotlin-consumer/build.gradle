@@ -12,10 +12,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
-apply plugin: 'com.google.android.libraries.mapsplatform.secrets-gradle-plugin'
 
 project.ext {
     autoValueVersion = "1.8.2"
@@ -24,6 +22,7 @@ project.ext {
 android {
     compileSdkVersion 33
     buildToolsVersion "30.0.3"
+    namespace "com.google.mapsplatform.transportation.sample.kotlinconsumer"
 
     defaultConfig {
         applicationId "com.google.mapsplatform.transportation.sample.kotlinconsumer"
@@ -44,8 +43,12 @@ android {
 
     compileOptions {
         coreLibraryDesugaringEnabled true
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = "11"
     }
 
     testOptions {
@@ -56,6 +59,10 @@ android {
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
+    }
+
+    lintOptions {
+        abortOnError false
     }
 }
 
@@ -87,7 +94,7 @@ dependencies {
     testImplementation "androidx.test.espresso:espresso-core:$espressoVersion"
     testImplementation "com.google.truth:truth:$truthVersion"
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:$kotlinTestJunitVersion"
-    testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin:$mockitoKotlinVersion"
+    testImplementation "org.mockito.kotlin:mockito-kotlin:$mockitoKotlinVersion"
     testImplementation "androidx.test.espresso:espresso-core:$espressoVersion"
     testImplementation "org.mockito:mockito-core:$mockitoVersion"
     testImplementation "org.mockito:mockito-inline:$mockitoVersion"

@@ -23,13 +23,6 @@ import com.google.mapsplatform.transportation.sample.kotlindriver.provider.respo
 import com.google.mapsplatform.transportation.sample.kotlindriver.provider.response.Waypoint
 import com.google.mapsplatform.transportation.sample.kotlindriver.state.TripState
 import com.google.mapsplatform.transportation.sample.kotlindriver.state.TripStatus
-import com.nhaarman.mockitokotlin2.any
-import com.nhaarman.mockitokotlin2.doAnswer
-import com.nhaarman.mockitokotlin2.doReturn
-import com.nhaarman.mockitokotlin2.mock
-import com.nhaarman.mockitokotlin2.times
-import com.nhaarman.mockitokotlin2.verifyBlocking
-import com.nhaarman.mockitokotlin2.whenever
 import kotlin.test.assertFailsWith
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
@@ -38,6 +31,13 @@ import okhttp3.MediaType
 import okhttp3.ResponseBody
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.kotlin.any
+import org.mockito.kotlin.doAnswer
+import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verifyBlocking
+import org.mockito.kotlin.whenever
 import retrofit2.HttpException
 import retrofit2.Response
 

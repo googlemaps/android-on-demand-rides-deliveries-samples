@@ -52,7 +52,6 @@ import com.google.android.libraries.mapsplatform.transportation.consumer.Consume
 import com.google.android.libraries.mapsplatform.transportation.consumer.managers.TripModel;
 import com.google.android.libraries.mapsplatform.transportation.consumer.managers.TripModelManager;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TerminalLocation;
-import com.google.android.libraries.mapsplatform.transportation.consumer.model.Trip.TripStatus;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripInfo;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripWaypoint;
 import com.google.android.libraries.mapsplatform.transportation.consumer.sessions.JourneySharingSession;
@@ -76,8 +75,10 @@ public class SampleAppActivity extends AppCompatActivity
   private static final String TAG = "SampleAppActivity";
 
   private static final long MINUTE_IN_MILLIS = 1000 * 60;
+
   /** Default zoom of initial map state. */
   private static final int DEFAULT_ZOOM = 16;
+
   /** Default Map location if failed to receive FLP location. Defaulted to Google MTV. */
   private static final LatLng DEFAULT_MAP_LOCATION = new LatLng(37.423061, -122.084051);
 
@@ -163,17 +164,23 @@ public class SampleAppActivity extends AppCompatActivity
           public void onConsumerMapReady(ConsumerGoogleMap consumerGoogleMap) {
             // Safe to do so as controller will only be nullified during consumerMap's onDestroy()
             consumerController = requireNonNull(consumerGoogleMap.getConsumerController());
+
+            Task<ConsumerApi> cachedTask = ConsumerApi.getInstance();
             Task<ConsumerApi> consumerApiTask =
-                ConsumerApi.initialize(
-                    SampleAppActivity.this,
-                    ProviderUtils.getProviderId(SampleAppActivity.this),
-                    new TripAuthTokenFactory(getApplication()));
+                cachedTask != null && cachedTask.isSuccessful()
+                    ? cachedTask
+                    : ConsumerApi.initialize(
+                        SampleAppActivity.this,
+                        ProviderUtils.getProviderId(SampleAppActivity.this),
+                        new TripAuthTokenFactory(getApplication()));
+
             consumerApiTask.addOnSuccessListener(
                 consumerApi ->
                     tripModelManager = requireNonNull(consumerApi.getTripModelManager()));
             consumerApiTask.addOnFailureListener(
                 task -> Log.e(TAG, "ConsumerApi Initialization Error:\n" + task.getMessage()));
             ConsumerMarkerUtils.setCustomMarkers(consumerController, SampleAppActivity.this);
+            PolylineStyles.enableTrafficAwarePolyline(consumerController.getConsumerMapStyle());
             setupViewBindings();
             googleMap = consumerGoogleMap;
             centerCameraToLastLocation();
@@ -264,20 +271,18 @@ public class SampleAppActivity extends AppCompatActivity
 
     // *** Disable the action button when the camera starts moving ***
     requireNonNull(googleMap)
-            .setOnCameraMoveStartedListener(reason -> {
+        .setOnCameraMoveStartedListener(
+            reason -> {
               actionButton.setEnabled(false);
               updateActionButtonAppearance();
             });
   }
 
   private void updateActionButtonAppearance() {
-    // *** Use ternary operator to simplify color selection ***
     int backgroundColorResource = actionButton.isEnabled() ? R.color.actionable : R.color.disabled;
-
-    Drawable roundedButton = actionButton.getBackground();
-    DrawableCompat.setTint(roundedButton, ContextCompat.getColor(this, backgroundColorResource));
+    DrawableCompat.setTint(
+        actionButton.getBackground(), ContextCompat.getColor(this, backgroundColorResource));
   }
-
 
   /**
    * Updates the current marker (depending on app state) to the given location. Ex: when app state
@@ -371,7 +376,7 @@ public class SampleAppActivity extends AppCompatActivity
     }
 
     switch (status) {
-      case TripStatus.NEW:
+      case TripInfo.TripStatus.NEW:
         if (consumerViewModel.isTripMatched()
             && consumerViewModel.getTripInfo().getValue().getNextWaypoint() != null) {
           setTripStatusTitle(R.string.state_enroute_to_pickup);
@@ -381,24 +386,24 @@ public class SampleAppActivity extends AppCompatActivity
         actionButton.setVisibility(View.INVISIBLE);
         isSharedTripTypeSwitch.setVisibility(View.GONE);
         break;
-      case TripStatus.ENROUTE_TO_PICKUP:
+      case TripInfo.TripStatus.ENROUTE_TO_PICKUP:
         removeAllMarkers();
         setTripStatusTitle(R.string.state_enroute_to_pickup);
         break;
-      case TripStatus.ARRIVED_AT_PICKUP:
+      case TripInfo.TripStatus.ARRIVED_AT_PICKUP:
         setTripStatusTitle(R.string.state_arrived_at_pickup);
         break;
-      case TripStatus.ENROUTE_TO_DROPOFF:
+      case TripInfo.TripStatus.ENROUTE_TO_DROPOFF:
         setTripStatusTitle(R.string.state_enroute_to_dropoff);
         break;
-      case TripStatus.ARRIVED_AT_INTERMEDIATE_DESTINATION:
+      case TripInfo.TripStatus.ARRIVED_AT_INTERMEDIATE_DESTINATION:
         setTripStatusTitle(R.string.state_arrived_at_intermediate_destination);
         break;
-      case TripStatus.ENROUTE_TO_INTERMEDIATE_DESTINATION:
+      case TripInfo.TripStatus.ENROUTE_TO_INTERMEDIATE_DESTINATION:
         setTripStatusTitle(R.string.state_enroute_to_intermediate_destination);
         break;
-      case TripStatus.COMPLETE:
-      case TripStatus.CANCELED:
+      case TripInfo.TripStatus.COMPLETE:
+      case TripInfo.TripStatus.CANCELED:
         setTripStatusTitle(R.string.state_end_of_trip);
         hideTripData();
         removeAllMarkers();
@@ -564,11 +569,11 @@ public class SampleAppActivity extends AppCompatActivity
     vehicleIdView.setText(
         getResources().getString(R.string.vehicle_id_label, tripInfo.getVehicleId()));
 
-    displayTripStatus(tripInfo.getTripStatus());
+    displayTripStatus(tripInfo.getCurrentTripStatus());
 
     int visibility =
-        (tripInfo.getTripStatus() == TripStatus.COMPLETE
-                || tripInfo.getTripStatus() == TripStatus.CANCELED)
+        (tripInfo.getCurrentTripStatus() == TripInfo.TripStatus.COMPLETE
+                || tripInfo.getCurrentTripStatus() == TripInfo.TripStatus.CANCELED)
             ? View.INVISIBLE
             : View.VISIBLE;
     vehicleIdView.setVisibility(visibility);

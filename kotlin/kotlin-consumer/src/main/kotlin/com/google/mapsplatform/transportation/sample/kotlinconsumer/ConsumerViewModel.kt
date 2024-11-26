@@ -24,7 +24,6 @@ import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.libraries.mapsplatform.transportation.consumer.managers.TripModel
 import com.google.android.libraries.mapsplatform.transportation.consumer.managers.TripModelCallback
-import com.google.android.libraries.mapsplatform.transportation.consumer.model.Trip
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripInfo
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripName
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripWaypoint
@@ -39,7 +38,6 @@ import com.google.mapsplatform.transportation.sample.kotlinconsumer.state.AppSta
 import java.lang.ref.WeakReference
 import java.net.ConnectException
 import java.util.Timer
-import kotlin.concurrent.schedule
 import kotlin.concurrent.timerTask
 import kotlin.reflect.KProperty
 import kotlinx.coroutines.Dispatchers
@@ -115,7 +113,7 @@ class ConsumerViewModel(
       intermediateDestinationsLiveData.value = value
     }
 
-  /** LiveData for the current trip [Trip.TripStatus] for each status change during the trip. */
+  /** LiveData for the current trip [TripInfo.TripStatus] for each status change during the trip. */
   val tripStatusLiveData = MutableLiveData<Int>()
 
   /** LiveData for the current trip id. */
@@ -225,9 +223,9 @@ class ConsumerViewModel(
   private fun updateTripStatus(status: Int) {
     tripStatusLiveData.value = status
     if (
-      status == Trip.TripStatus.COMPLETE ||
-        status == Trip.TripStatus.CANCELED ||
-        status == Trip.TripStatus.UNKNOWN_TRIP_STATUS
+      status == TripInfo.TripStatus.COMPLETE ||
+        status == TripInfo.TripStatus.CANCELED ||
+        status == TripInfo.TripStatus.UNKNOWN_TRIP_STATUS
     ) {
       stopJourneySharing()
       intermediateDestinations = emptyList()
@@ -304,8 +302,8 @@ class ConsumerViewModel(
         tripIdLiveData.value = TripName.create(tripInfo.tripName).tripId
       }
 
-      override fun onTripStatusUpdated(tripInfo: TripInfo, @Trip.TripStatus status: Int) {
-        updateTripStatus(tripInfo.tripStatus)
+      override fun onTripStatusUpdate(tripInfo: TripInfo, @TripInfo.TripStatus status: Int) {
+        updateTripStatus(tripInfo.currentTripStatus)
       }
 
       override fun onTripETAToNextWaypointUpdated(tripInfo: TripInfo, timestampMillis: Long?) {

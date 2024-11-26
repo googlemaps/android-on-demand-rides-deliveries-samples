@@ -12,10 +12,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+plugins {
+    id "com.google.cloud.artifactregistry.gradle-plugin" version "2.1.5"
+}
 
+repositories {
+    maven {
+        url "artifactregistry://us-west2-maven.pkg.dev/gmp-artifacts/transportation"
+    }
+}
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
-apply plugin: 'com.google.android.libraries.mapsplatform.secrets-gradle-plugin'
 
 project.ext {
     autoValueVersion = "1.8.2"
@@ -24,6 +31,7 @@ project.ext {
 android {
     compileSdkVersion 33
     buildToolsVersion "30.0.3"
+    namespace "com.google.mapsplatform.transportation.sample.consumer"
 
     defaultConfig {
         applicationId "com.google.mapsplatform.transportation.sample.consumer"
@@ -44,8 +52,22 @@ android {
 
     compileOptions {
         coreLibraryDesugaringEnabled true
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
+
+    lintOptions {
+        abortOnError false
     }
 }
 
@@ -75,4 +97,7 @@ dependencies {
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$anroidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$espressoVersion"
+    testImplementation "com.google.truth:truth:$truthVersion"
+    testImplementation "org.mockito:mockito-core:$mockitoVersion"
+    testImplementation "org.mockito:mockito-inline:$mockitoVersion"
 }

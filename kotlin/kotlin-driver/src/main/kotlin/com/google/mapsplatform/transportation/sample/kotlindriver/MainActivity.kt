@@ -271,6 +271,7 @@ class MainActivity : AppCompatActivity(), Presenter {
   companion object {
     private const val TAG = "MainActivity"
     private const val TRIP_VIEW_INITIAL_STATE = View.GONE
+
     private fun logNavigationApiInitError(errorCode: Int) {
       when (errorCode) {
         NavigationApi.ErrorCode.NOT_AUTHORIZED ->

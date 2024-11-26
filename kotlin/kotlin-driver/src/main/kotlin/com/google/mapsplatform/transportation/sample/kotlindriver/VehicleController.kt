@@ -19,8 +19,8 @@ import android.content.Context
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.DriverContext
-import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.DriverContext.StatusListener.StatusCode
-import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.DriverContext.StatusListener.StatusLevel
+import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.DriverContext.DriverStatusListener.StatusCode
+import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.DriverContext.DriverStatusListener.StatusLevel
 import com.google.android.libraries.mapsplatform.transportation.driver.api.ridesharing.RidesharingDriverApi
 import com.google.android.libraries.mapsplatform.transportation.driver.api.ridesharing.vehiclereporter.RidesharingVehicleReporter
 import com.google.android.libraries.mapsplatform.transportation.driver.api.ridesharing.vehiclereporter.RidesharingVehicleReporter.VehicleState
@@ -183,10 +183,7 @@ class VehicleController(
             .setRoadSnappedLocationProvider(
               NavigationApi.getRoadSnappedLocationProvider(application)
             )
-            .setStatusListener { statusLevel: StatusLevel, statusCode: StatusCode, statusMsg: String
-              ->
-              logLocationUpdate(statusLevel, statusCode, statusMsg)
-            }
+            .setDriverStatusListener(::logLocationUpdate)
             .build()
         )
         .ridesharingVehicleReporter
@@ -238,7 +235,7 @@ class VehicleController(
   private fun setVehicleOnline() {
     vehicleReporter.setLocationReportingInterval(
       DEFAULT_LOCATION_UPDATE_INTERVAL_SECONDS,
-      TimeUnit.SECONDS
+      TimeUnit.SECONDS,
     )
 
     // enableLocationTracking() must be called before setting state to Online.
@@ -341,7 +338,7 @@ class VehicleController(
   private fun startJourneySharing() {
     vehicleReporter.setLocationReportingInterval(
       JOURNEY_SHARING_LOCATION_UPDATE_INTERVAL_SECONDS,
-      TimeUnit.SECONDS
+      TimeUnit.SECONDS,
     )
   }
 
@@ -349,7 +346,7 @@ class VehicleController(
   private fun stopJourneySharing() {
     vehicleReporter.setLocationReportingInterval(
       DEFAULT_LOCATION_UPDATE_INTERVAL_SECONDS,
-      TimeUnit.SECONDS
+      TimeUnit.SECONDS,
     )
 
     // The following two are the only required methods to clean up navigator state in between stops.
@@ -435,15 +432,21 @@ class VehicleController(
 
     // Location update interval when the vehicle is waiting for a trip match.
     private const val DEFAULT_LOCATION_UPDATE_INTERVAL_SECONDS: Long = 10
+
     private fun logLocationUpdate(
       statusLevel: StatusLevel,
       statusCode: StatusCode,
-      statusMsg: String
+      statusMsg: String,
+      cause: Throwable?,
     ) {
       val message = "Location update: $statusLevel $statusCode: $statusMsg"
 
       if (statusLevel == StatusLevel.ERROR) {
-        Log.e(TAG, message)
+        if (cause == null) {
+          Log.e(TAG, message)
+        } else {
+          Log.e(TAG, message + " cause: ${cause?.message}")
+        }
       } else {
         Log.i(TAG, message)
       }

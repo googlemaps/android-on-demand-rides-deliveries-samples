@@ -15,11 +15,11 @@
 package com.google.mapsplatform.transportation.sample.kotlinconsumer
 
 import androidx.annotation.IntDef
-import java.lang.annotation.Retention
-import java.lang.annotation.RetentionPolicy
+import kotlin.annotation.AnnotationRetention
+import kotlin.annotation.Retention
 
 /** Types of markers that are drawn by the sample app. */
-@Retention(RetentionPolicy.SOURCE)
+@Retention(AnnotationRetention.SOURCE)
 @IntDef(
   ConsumerMarkerType.PICKUP_POINT,
   ConsumerMarkerType.DROPOFF_POINT,

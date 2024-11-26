@@ -64,6 +64,7 @@
     <string name="match_filter_text">Match Filter</string>
     <string name="vehicle_type_text">Vehicle Type</string>
     <string name="vehicle_capacity_text">Vehicle Capacity</string>
+    <string name="simulate_locations_text">Simulate Locations</string>
     <string name="vehicle_type_info_text">(must change vehicle id to change vehicle type)</string>
     <!-- Header for section where the supported trip types can be selected. [CHAR_LIMIT=NONE] -->
     <string name="trip_type_text">Trip Type(s)</string>

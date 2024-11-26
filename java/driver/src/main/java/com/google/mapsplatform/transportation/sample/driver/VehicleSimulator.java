@@ -27,9 +27,18 @@ import com.google.mapsplatform.transportation.sample.driver.provider.response.Wa
 class VehicleSimulator {
 
   private final Simulator simulator;
+  private final LocalSettings localSettings;
 
-  VehicleSimulator(Simulator simulator) {
+  /**
+   * Default constructor for {@link VehicleSimulator}.
+   *
+   * @param simulator the actual simulator object obtained from {@link Navigator} that will update
+   *     locations.
+   * @param localSettings settings that are aware of the simulation enabling.
+   */
+  VehicleSimulator(Simulator simulator, LocalSettings localSettings) {
     this.simulator = simulator;
+    this.localSettings = localSettings;
   }
 
   /** Sets the user location to be used for simulation. */
@@ -41,11 +50,13 @@ class VehicleSimulator {
 
   /**
    * Starts a simulation to the location defined by {@link #setLocation(Waypoint.Point)} along a
-   * route calculated by the Navigator.
+   * route calculated by the {@link Navigator}.
    */
   void start(float speedMultiplier) {
-    simulator.simulateLocationsAlongExistingRoute(
-        new SimulationOptions().speedMultiplier(speedMultiplier));
+    if (localSettings.getIsSimulationEnabled()) {
+      simulator.simulateLocationsAlongExistingRoute(
+          new SimulationOptions().speedMultiplier(speedMultiplier));
+    }
   }
 
   /** Pauses a simulation that can later be resumed. */
@@ -53,7 +64,7 @@ class VehicleSimulator {
     simulator.pause();
   }
 
-  /** Stops the current simulation. */
+  /** Resets the position of the {@link Navigator} and pauses navigation. */
   void unsetLocation() {
     simulator.unsetUserLocation();
   }

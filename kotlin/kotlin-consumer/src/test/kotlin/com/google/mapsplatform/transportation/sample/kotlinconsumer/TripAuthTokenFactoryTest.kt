@@ -19,18 +19,18 @@ import com.google.android.libraries.mapsplatform.transportation.consumer.auth.Au
 import com.google.common.truth.Truth.assertThat
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.response.TokenResponse
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.service.LocalProviderService
-import com.nhaarman.mockitokotlin2.any
-import com.nhaarman.mockitokotlin2.doAnswer
-import com.nhaarman.mockitokotlin2.doReturn
-import com.nhaarman.mockitokotlin2.mock
-import com.nhaarman.mockitokotlin2.times
-import com.nhaarman.mockitokotlin2.verifyBlocking
-import com.nhaarman.mockitokotlin2.whenever
 import java.net.ConnectException
 import kotlin.test.assertFailsWith
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.kotlin.any
+import org.mockito.kotlin.doAnswer
+import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verifyBlocking
+import org.mockito.kotlin.whenever
 
 @RunWith(AndroidJUnit4::class)
 class TripAuthTokenFactoryTest {

@@ -16,26 +16,21 @@ package com.google.mapsplatform.transportation.sample.driver;
 
 import static java.util.Objects.requireNonNull;
 
-import android.app.Application;
 import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.AuthTokenContext;
 import com.google.android.libraries.mapsplatform.transportation.driver.api.base.data.AuthTokenContext.AuthTokenFactory;
-import com.google.mapsplatform.transportation.sample.driver.provider.ProviderUtils;
 import com.google.mapsplatform.transportation.sample.driver.provider.response.TokenResponse;
 import com.google.mapsplatform.transportation.sample.driver.provider.service.LocalProviderService;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 
 class TripAuthTokenFactory implements AuthTokenFactory {
   private String token;
   private long expiryTimeMs = 0;
   private String vehicleId;
+
   private final LocalProviderService providerService;
 
-  TripAuthTokenFactory(Application application, Executor executor) {
-    providerService =
-        new LocalProviderService(
-            LocalProviderService.createRestProvider(ProviderUtils.getProviderBaseUrl(application)),
-            executor);
+  TripAuthTokenFactory(LocalProviderService providerService) {
+    this.providerService = providerService;
   }
 
   @Override

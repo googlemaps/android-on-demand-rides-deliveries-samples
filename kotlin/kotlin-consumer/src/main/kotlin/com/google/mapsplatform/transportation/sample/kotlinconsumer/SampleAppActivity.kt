@@ -43,7 +43,6 @@ import com.google.android.libraries.mapsplatform.transportation.consumer.Consume
 import com.google.android.libraries.mapsplatform.transportation.consumer.managers.TripModel
 import com.google.android.libraries.mapsplatform.transportation.consumer.managers.TripModelManager
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TerminalLocation
-import com.google.android.libraries.mapsplatform.transportation.consumer.model.Trip
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripInfo
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripWaypoint
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripWaypoint.WaypointType
@@ -122,6 +121,7 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
 
   // Session monitoring the current active trip.
   private var journeySharingSession: JourneySharingSession? = null
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.main)
@@ -129,16 +129,11 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
 
     localProviderService =
       LocalProviderService(
-        LocalProviderService.createRestProvider(ProviderUtils.getProviderBaseUrl(application)),
+        LocalProviderService.createRestProvider(ProviderUtils.getProviderBaseUrl(application))
       )
 
     consumerViewModel =
-      ViewModelProvider(
-          this,
-          ConsumerViewModel.Factory(
-            localProviderService,
-          )
-        )
+      ViewModelProvider(this, ConsumerViewModel.Factory(localProviderService))
         .get(ConsumerViewModel::class.java)
 
     consumerViewModel.setJourneySharingListener(this)
@@ -158,12 +153,18 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
         override fun onConsumerMapReady(consumerGoogleMap: ConsumerGoogleMap) {
           // Safe to do so as controller will only be nullified during consumerMap's onDestroy()
           consumerController = consumerGoogleMap.consumerController!!
+
           val consumerApiTask =
-            ConsumerApi.initialize(
-              this@SampleAppActivity,
-              ProviderUtils.getProviderId(this@SampleAppActivity),
-              TripAuthTokenFactory(localProviderService)
-            )
+            if (ConsumerApi.getInstance()?.isSuccessful == true) {
+              ConsumerApi.getInstance()
+            } else {
+              ConsumerApi.initialize(
+                this@SampleAppActivity,
+                ProviderUtils.getProviderId(this@SampleAppActivity),
+                TripAuthTokenFactory(localProviderService),
+              )
+            }
+
           consumerApiTask?.addOnSuccessListener { consumerApi: ConsumerApi ->
             tripModelManager = consumerApi.tripModelManager!!
           }
@@ -173,18 +174,20 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
               """
                ConsumerApi Initialization Error:
                ${task.message}
-               """.trimIndent()
+               """
+                .trimIndent(),
             )
           }
           ConsumerMarkerUtils.setCustomMarkers(consumerController, this@SampleAppActivity)
           setupViewBindings()
           googleMap = consumerGoogleMap
+          PolylineStyles.enableTrafficAwarePolyline(consumerController.getConsumerMapStyle())
           centerCameraToLastLocation()
           setupMapListener()
         }
       },
       /* fragmentActivity= */ this,
-      /* googleMapOptions= */ null
+      /* googleMapOptions= */ null,
     )
   }
 
@@ -243,20 +246,22 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
     googleMap?.setOnCameraIdleListener(
       GoogleMap.OnCameraIdleListener {
         val cameraPosition = googleMap?.cameraPosition ?: return@OnCameraIdleListener
-
-        if (
-          consumerViewModel.appState != AppStates.SELECTING_DROPOFF &&
-            consumerViewModel.appState != AppStates.SELECTING_PICKUP
-        ) {
-          return@OnCameraIdleListener
-        }
-
         val cameraLocation = cameraPosition.target
         val terminalLocation = TerminalLocation.create(cameraLocation)
         consumerViewModel.updateLocationPointForState(cameraLocation)
         updateMarkerBasedOnState(terminalLocation)
+
+        // Re-enable the button after camera is idle
+        actionButton.isEnabled = true
+        updateActionButtonAppearance()
       }
     )
+
+    // Disable the action button when the camera starts moving.
+    googleMap?.setOnCameraMoveStartedListener {
+      actionButton.isEnabled = false
+      updateActionButtonAppearance()
+    }
   }
 
   /**
@@ -330,7 +335,7 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
     }
 
     when (status) {
-      Trip.TripStatus.NEW -> {
+      TripInfo.TripStatus.NEW -> {
         if (consumerViewModel.isTripMatched && consumerViewModel.tripInfo?.nextWaypoint != null) {
           setTripStatusTitle(R.string.state_enroute_to_pickup)
         } else {
@@ -339,18 +344,19 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
         actionButton.visibility = View.INVISIBLE
         isSharedTripTypeSwitch.visibility = View.GONE
       }
-      Trip.TripStatus.ENROUTE_TO_PICKUP -> {
+      TripInfo.TripStatus.ENROUTE_TO_PICKUP -> {
         removeAllMarkers()
         setTripStatusTitle(R.string.state_enroute_to_pickup)
       }
-      Trip.TripStatus.ARRIVED_AT_PICKUP -> setTripStatusTitle(R.string.state_arrived_at_pickup)
-      Trip.TripStatus.ENROUTE_TO_DROPOFF -> setTripStatusTitle(R.string.state_enroute_to_dropoff)
-      Trip.TripStatus.ARRIVED_AT_INTERMEDIATE_DESTINATION ->
+      TripInfo.TripStatus.ARRIVED_AT_PICKUP -> setTripStatusTitle(R.string.state_arrived_at_pickup)
+      TripInfo.TripStatus.ENROUTE_TO_DROPOFF ->
+        setTripStatusTitle(R.string.state_enroute_to_dropoff)
+      TripInfo.TripStatus.ARRIVED_AT_INTERMEDIATE_DESTINATION ->
         setTripStatusTitle(R.string.state_arrived_at_intermediate_destination)
-      Trip.TripStatus.ENROUTE_TO_INTERMEDIATE_DESTINATION ->
+      TripInfo.TripStatus.ENROUTE_TO_INTERMEDIATE_DESTINATION ->
         setTripStatusTitle(R.string.state_enroute_to_intermediate_destination)
-      Trip.TripStatus.COMPLETE,
-      Trip.TripStatus.CANCELED -> {
+      TripInfo.TripStatus.COMPLETE,
+      TripInfo.TripStatus.CANCELED -> {
         setTripStatusTitle(R.string.state_end_of_trip)
         hideTripData()
         removeAllMarkers()
@@ -370,7 +376,7 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
         googleMap?.addMarker(
           ConsumerMarkerUtils.getConsumerMarkerOptions(
               this@SampleAppActivity,
-              ConsumerMarkerType.PREVIOUS_TRIP_PENDING_POINT
+              ConsumerMarkerType.PREVIOUS_TRIP_PENDING_POINT,
             )
             .position(waypoint.terminalLocation.latLng)
         )
@@ -435,7 +441,7 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
       googleMap?.addMarker(
         ConsumerMarkerUtils.getConsumerMarkerOptions(
             this,
-            ConsumerMarkerType.INTERMEDIATE_DESTINATION_POINT
+            ConsumerMarkerType.INTERMEDIATE_DESTINATION_POINT,
           )
           .position(marker.position)
       )
@@ -499,8 +505,8 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
     displayTripStatus(tripInfo.tripStatus)
     val visibility =
       if (
-        tripInfo.tripStatus == Trip.TripStatus.COMPLETE ||
-          tripInfo.tripStatus == Trip.TripStatus.CANCELED
+        tripInfo.currentTripStatus == TripInfo.TripStatus.COMPLETE ||
+          tripInfo.currentTripStatus == TripInfo.TripStatus.CANCELED
       )
         View.INVISIBLE
       else View.VISIBLE
@@ -581,6 +587,11 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
     }
   }
 
+  private fun updateActionButtonAppearance() {
+    val backgroundColor = if (actionButton.isEnabled) R.color.actionable else R.color.disabled
+    DrawableCompat.setTint(actionButton.background, ContextCompat.getColor(this, backgroundColor))
+  }
+
   /** Renders a polyline representing all the points contained for the given trip. */
   private fun drawTripPreviewPolyline() {
     val pickupLocation = consumerViewModel.pickupLocation
@@ -648,35 +659,35 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
     // Start observing trip data.
     consumerViewModel.tripStatusLiveData.observe(
       this@SampleAppActivity,
-      { status: Int -> displayTripStatus(status) }
+      { status: Int -> displayTripStatus(status) },
     )
     consumerViewModel.appStateLiveData.observe(
       this@SampleAppActivity,
-      { state: Int -> displayAppState(state) }
+      { state: Int -> displayAppState(state) },
     )
     consumerViewModel.tripIdLiveData.observe(
       this@SampleAppActivity,
-      { tripId: String? -> displayTripId(tripId) }
+      { tripId: String? -> displayTripId(tripId) },
     )
     consumerViewModel.tripInfoLiveData.observe(
       this@SampleAppActivity,
-      { tripInfo: TripInfo? -> displayTripInfo(tripInfo) }
+      { tripInfo: TripInfo? -> displayTripInfo(tripInfo) },
     )
     consumerViewModel.nextWaypointEtaLiveData.observe(
       this@SampleAppActivity,
-      { etaValue: Long? -> displayEta(etaValue) }
+      { etaValue: Long? -> displayEta(etaValue) },
     )
     consumerViewModel.remainingDistanceMetersLiveData.observe(
       this@SampleAppActivity,
-      { remainingDistanceMeters: Int? -> displayRemainingDistance(remainingDistanceMeters) }
+      { remainingDistanceMeters: Int? -> displayRemainingDistance(remainingDistanceMeters) },
     )
     consumerViewModel.errorMessage.observe(
       this@SampleAppActivity,
-      { resourceId: Int? -> resourceId?.also { displayErrorMessage(it) } }
+      { resourceId: Int? -> resourceId?.also { displayErrorMessage(it) } },
     )
     consumerViewModel.otherTripWaypointsLiveData.observe(
       this@SampleAppActivity,
-      { waypoints: List<TripWaypoint> -> displayOtherTripMarkers(waypoints) }
+      { waypoints: List<TripWaypoint> -> displayOtherTripMarkers(waypoints) },
     )
   }
 

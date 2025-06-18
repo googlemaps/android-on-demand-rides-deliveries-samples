@@ -31,6 +31,7 @@ import android.widget.Spinner;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.DialogFragment;
 import com.google.common.collect.ImmutableList;
+import com.google.mapsplatform.transportation.sample.driver.LocalSettings;
 import com.google.mapsplatform.transportation.sample.driver.R;
 import com.google.mapsplatform.transportation.sample.driver.provider.request.VehicleSettings;
 import java.util.Arrays;
@@ -51,8 +52,7 @@ public class VehicleDialogFragment extends DialogFragment {
 
   private static final String TAG = VehicleDialogFragment.class.getName();
 
-  /** Initial vehicle id. */
-  private final String vehicleId;
+  private final LocalSettings localSettings;
 
   private final VehicleSettings vehicleSettings;
 
@@ -60,8 +60,10 @@ public class VehicleDialogFragment extends DialogFragment {
   private final OnDialogResultListener listener;
 
   private VehicleDialogFragment(
-      String vehicleId, VehicleSettings vehicleSettings, OnDialogResultListener listener) {
-    this.vehicleId = vehicleId;
+      LocalSettings localSettings,
+      VehicleSettings vehicleSettings,
+      OnDialogResultListener listener) {
+    this.localSettings = localSettings;
     this.vehicleSettings = vehicleSettings;
     this.listener = listener;
   }
@@ -72,7 +74,7 @@ public class VehicleDialogFragment extends DialogFragment {
     View view = inflater.inflate(R.layout.vehicle_info_dialog, null);
 
     EditText editText = view.findViewById(R.id.vehicle_id);
-    editText.setText(vehicleId);
+    editText.setText(localSettings.getVehicleId());
 
     Spinner vehicleCapacitySpinner = view.findViewById(R.id.vehicle_capacity_spinner);
 
@@ -101,6 +103,9 @@ public class VehicleDialogFragment extends DialogFragment {
 
     sharedTripTypeCheckbox.setChecked(sharedTripTypeEnabled);
     exclusiveTripTypeCheckbox.setChecked(exclusiveTripTypeEnabled);
+
+    CheckBox simulationEnabledCheckbox = view.findViewById(R.id.simulate_locations_checkbox);
+    simulationEnabledCheckbox.setChecked(localSettings.getIsSimulationEnabled());
 
     return new AlertDialog.Builder(getActivity())
         .setView(view)
@@ -132,15 +137,25 @@ public class VehicleDialogFragment extends DialogFragment {
                         supportedTripTypes.build());
 
                 listener.onResult(settings);
+                localSettings.saveIsSimulationEnabled(simulationEnabledCheckbox.isChecked());
               }
             })
         .setNegativeButton(R.string.cancel_label, (dialog, id) -> {})
         .create();
   }
 
+  /**
+   * Creates an instance of a {@link VehicleDialogFragment}.
+   *
+   * @param localSettings the user's local settings.
+   * @param vehicleSettings the vehicle's remote settings.
+   * @param listener gets notified when vehicle has been updated.
+   */
   public static VehicleDialogFragment newInstance(
-      String vehicleId, VehicleSettings vehicleSettings, OnDialogResultListener listener) {
-    return new VehicleDialogFragment(vehicleId, vehicleSettings, listener);
+      LocalSettings localSettings,
+      VehicleSettings vehicleSettings,
+      OnDialogResultListener listener) {
+    return new VehicleDialogFragment(localSettings, vehicleSettings, listener);
   }
 
   // Returns the index in the Vehicle Capacities array of the saved vehicle capacity.

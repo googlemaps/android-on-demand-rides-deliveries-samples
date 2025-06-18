@@ -88,4 +88,18 @@
       android:layout_height="wrap_content"
       app:layout_constraintTop_toBottomOf="@+id/vehicle_capacity_label"/>
 
+  <TextView
+      android:id="@+id/simulate_locations_label"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="@string/simulate_locations_text"
+      style="@style/DialogSectionHeaderText"
+      app:layout_constraintTop_toBottomOf="@+id/vehicle_capacity_spinner"
+      android:layout_marginTop="@dimen/dialog_space_height"/>
+  <CheckBox
+      android:id="@+id/simulate_locations_checkbox"
+      android:text="@string/enabled"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      app:layout_constraintTop_toBottomOf="@+id/simulate_locations_label"/>
 </androidx.constraintlayout.widget.ConstraintLayout>

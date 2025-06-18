@@ -23,20 +23,20 @@ import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.res
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.response.WaypointResponse
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.service.LocalProviderService
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.state.AppStates
-import com.nhaarman.mockitokotlin2.any
-import com.nhaarman.mockitokotlin2.doAnswer
-import com.nhaarman.mockitokotlin2.doReturn
-import com.nhaarman.mockitokotlin2.eq
-import com.nhaarman.mockitokotlin2.mock
-import com.nhaarman.mockitokotlin2.times
-import com.nhaarman.mockitokotlin2.verify
-import com.nhaarman.mockitokotlin2.verifyBlocking
-import com.nhaarman.mockitokotlin2.whenever
 import java.net.ConnectException
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.kotlin.any
+import org.mockito.kotlin.doAnswer
+import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.verifyBlocking
+import org.mockito.kotlin.whenever
 import org.robolectric.Robolectric
 
 @RunWith(AndroidJUnit4::class)

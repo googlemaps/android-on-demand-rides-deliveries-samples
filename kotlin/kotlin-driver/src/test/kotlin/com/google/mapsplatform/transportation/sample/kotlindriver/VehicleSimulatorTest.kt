@@ -17,15 +17,15 @@ package com.google.mapsplatform.transportation.sample.kotlindriver
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.android.libraries.navigation.SimulationOptions
 import com.google.android.libraries.navigation.Simulator
-import com.nhaarman.mockitokotlin2.any
-import com.nhaarman.mockitokotlin2.mock
-import com.nhaarman.mockitokotlin2.never
-import com.nhaarman.mockitokotlin2.refEq
-import com.nhaarman.mockitokotlin2.times
-import com.nhaarman.mockitokotlin2.verify
-import com.nhaarman.mockitokotlin2.whenever
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.kotlin.any
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.refEq
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 
 /** Unit tests for [VehicleSimulator]. */
 @RunWith(AndroidJUnit4::class)

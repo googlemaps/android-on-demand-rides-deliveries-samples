@@ -24,7 +24,6 @@ import androidx.lifecycle.MutableLiveData;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.libraries.mapsplatform.transportation.consumer.managers.TripModel;
 import com.google.android.libraries.mapsplatform.transportation.consumer.managers.TripModelCallback;
-import com.google.android.libraries.mapsplatform.transportation.consumer.model.Trip;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripInfo;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripName;
 import com.google.android.libraries.mapsplatform.transportation.consumer.model.TripWaypoint;
@@ -229,9 +228,9 @@ public class ConsumerViewModel extends AndroidViewModel {
    */
   private void updateTripStatus(int status) {
     tripStatus.setValue(status);
-    if (status == Trip.TripStatus.COMPLETE
-        || status == Trip.TripStatus.CANCELED
-        || status == Trip.TripStatus.UNKNOWN_TRIP_STATUS) {
+    if (status == TripInfo.TripStatus.COMPLETE
+        || status == TripInfo.TripStatus.CANCELED
+        || status == TripInfo.TripStatus.UNKNOWN_TRIP_STATUS) {
       stopJourneySharing();
       intermediateDestinations.setValue(ImmutableList.of());
     }
@@ -302,7 +301,9 @@ public class ConsumerViewModel extends AndroidViewModel {
     return getOtherTripWaypoints().getValue().get(0).getWaypointType();
   }
 
-  /** Returns the current trip {@link Trip.TripStatus} for each status change during the trip. */
+  /**
+   * Returns the current trip {@link TripInfo.TripStatus} for each status change during the trip.
+   */
   public LiveData<Integer> getTripStatus() {
     return tripStatus;
   }
@@ -415,8 +416,8 @@ public class ConsumerViewModel extends AndroidViewModel {
         }
 
         @Override
-        public void onTripStatusUpdated(TripInfo tripInfo, @Trip.TripStatus int status) {
-          updateTripStatus(tripInfo.getTripStatus());
+        public void onTripStatusUpdate(TripInfo tripInfo, @TripInfo.TripStatus int status) {
+          updateTripStatus(tripInfo.getCurrentTripStatus());
         }
 
         @Override

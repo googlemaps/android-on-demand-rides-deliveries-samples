@@ -69,10 +69,6 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        maven {
-            url 'http://adt-proxy.uplink2.goog:999/G4teqahrS3mE4S1fGMOHVA'
-            allowInsecureProtocol = true
-        }
     }
 }
 

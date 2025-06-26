@@ -14,8 +14,8 @@
  */
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 project.ext {
-    consumerSdkVersion = "2.99.0"
-    driverSdkVersion = "6.0.0"
+    consumerSdkVersion = "3.2.0"
+    driverSdkVersion = "6.2.0"
     autoValueVersion = "1.8.2"
     appCompatVersion = "1.4.0"
     constraintlayoutVersion = "2.1.2"
@@ -50,7 +50,7 @@ project.ext {
 }
 
 buildscript {
-    ext.kotlinVersion = "2.0.0"
+    ext.kotlinVersion = "2.1.0"
     repositories {
         google()
         mavenCentral()

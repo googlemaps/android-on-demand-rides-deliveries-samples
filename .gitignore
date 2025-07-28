@@ -87,6 +87,12 @@ lint/outputs/
 lint/tmp/
 # lint/reports/
 
+# Local libs binaries
+kotlin/kotlin-consumer/libs/
+
 # Android Profiling
 *.hprof
+
+# MacOS
+.DS_Store
 

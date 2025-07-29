@@ -21,6 +21,14 @@ project.ext {
     autoValueVersion = "1.8.2"
 }
 
+def localProps = new java.util.Properties()
+def localPropsFile = rootProject.file("local.properties")
+if (localPropsFile.isFile()) {
+    localPropsFile.withInputStream { stream ->
+        localProps.load(stream)
+    }
+}
+
 android {
     compileSdkVersion 34
     buildToolsVersion "34.0.0"
@@ -34,6 +42,12 @@ android {
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        manifestPlaceholders = [
+                MAPS_API_KEY: localProps.getProperty("MAPS_API_KEY"),
+                PROVIDER_ID : localProps.getProperty("PROVIDER_ID"),
+                PROVIDER_URL: localProps.getProperty("PROVIDER_URL"),
+        ]
     }
 
     buildTypes {

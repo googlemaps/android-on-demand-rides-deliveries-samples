@@ -27,7 +27,6 @@ object PermissionUtils {
   private val REQUIRED_PERMISSIONS =
     arrayOf(
       permission.ACCESS_FINE_LOCATION,
-      permission.WRITE_EXTERNAL_STORAGE,
       permission.READ_PHONE_STATE
     )
 
@@ -38,7 +37,6 @@ object PermissionUtils {
   private val REQUIRED_PERMISSIONS_OS_12PLUS =
     arrayOf(
       permission.ACCESS_FINE_LOCATION,
-      permission.WRITE_EXTERNAL_STORAGE,
       permission.READ_PHONE_STATE,
       permission.BLUETOOTH_CONNECT
     )

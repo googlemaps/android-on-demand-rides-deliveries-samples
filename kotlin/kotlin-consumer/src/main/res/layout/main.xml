@@ -23,24 +23,24 @@
       android:id="@+id/viewstub_overlay_container"
       android:layout_width="0dp"
       android:layout_height="0dp"
-      app:layout_constraintBottom_toTopOf="@id/trip_status_cardView"
+      app:layout_constraintBottom_toBottomOf="parent"
       app:layout_constraintEnd_toEndOf="parent"
       app:layout_constraintStart_toStartOf="parent"
       app:layout_constraintTop_toTopOf="parent">
     <include
-      layout="@layout/consumer_map_view"
-      android:layout_width="match_parent"
-      android:layout_height="match_parent" />
+        layout="@layout/consumer_map_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
     <include
-      layout="@layout/pickup_selection_pin"
-      android:layout_width="match_parent"
-      android:layout_height="match_parent"
-      android:visibility="gone" />
+        layout="@layout/pickup_selection_pin"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
     <include
-      layout="@layout/dropoff_selection_pin"
-      android:layout_width="match_parent"
-      android:layout_height="match_parent"
-      android:visibility="gone" />
+        layout="@layout/dropoff_selection_pin"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
   </FrameLayout>
 
   <androidx.constraintlayout.widget.Guideline
@@ -75,19 +75,19 @@
           app:layout_constraintEnd_toStartOf="@id/addStopButton"
           app:layout_constraintStart_toStartOf="parent"
           app:layout_constraintTop_toTopOf="parent" />
-        <Button
-            android:id="@+id/addStopButton"
-            style="@style/Widget.AppCompat.Button.Borderless.Colored"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_margin="@dimen/text_margin_start_end"
-            android:background="@drawable/ic_add_grey_36dp"
-            android:enabled="true"
-            android:visibility="gone"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@id/tripStatus"
-            app:layout_constraintTop_toTopOf="parent"
-      />
+      <Button
+          android:id="@+id/addStopButton"
+          style="@style/Widget.AppCompat.Button.Borderless.Colored"
+          android:layout_width="36dp"
+          android:layout_height="36dp"
+          android:layout_margin="@dimen/text_margin_start_end"
+          android:background="@drawable/ic_add_grey_36dp"
+          android:enabled="true"
+          android:visibility="gone"
+          app:layout_constraintEnd_toEndOf="parent"
+          app:layout_constraintStart_toEndOf="@id/tripStatus"
+          app:layout_constraintTop_toTopOf="parent"
+          />
       <TextView
           android:id="@+id/eta"
           android:layout_width="wrap_content"
@@ -138,7 +138,7 @@
           android:visibility="invisible"
           app:layout_constraintStart_toStartOf="@+id/guideline2"
           app:layout_constraintTop_toBottomOf="@+id/vehicleId" />
-       <Switch
+      <Switch
           android:id="@+id/is_shared_trip_type_switch"
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
@@ -150,18 +150,35 @@
           android:layout_marginStart="@dimen/text_margin_start_end"
           app:layout_constraintStart_toStartOf="parent"
           app:layout_constraintTop_toTopOf="parent" />
+
+      <Button
+          android:id="@+id/existingTripButton"
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="8dp"
+          android:layout_marginEnd="8dp"
+          android:layout_marginBottom="8dp"
+          android:background="@drawable/rounded_button"
+          android:text="Existing"
+          android:textColor="@android:color/white"
+          app:layout_constraintBottom_toBottomOf="parent"
+          app:layout_constraintEnd_toEndOf="parent"
+          app:layout_constraintHorizontal_weight="1"
+          app:layout_constraintStart_toEndOf="@+id/actionButton" />
+
       <Button
           android:id="@+id/actionButton"
           android:layout_width="0dp"
           android:layout_height="wrap_content"
-          android:layout_marginBottom="16dp"
           android:layout_marginStart="8dp"
-          android:layout_marginEnd="8dp"
+          android:layout_marginEnd="0dp"
+          android:layout_marginBottom="8dp"
           android:background="@drawable/rounded_button"
           android:text="@string/request_button_label"
           android:textColor="@android:color/white"
           app:layout_constraintBottom_toBottomOf="parent"
-          app:layout_constraintEnd_toEndOf="parent"
+          app:layout_constraintEnd_toStartOf="@+id/existingTripButton"
+          app:layout_constraintHorizontal_weight="2"
           app:layout_constraintStart_toStartOf="parent" />
     </androidx.constraintlayout.widget.ConstraintLayout>
   </androidx.cardview.widget.CardView>

@@ -12,6 +12,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+// kotlin/com/google/mapsplatform/transportation/sample/kotlinconsumer/ConsumerViewModel.kt
 @file:Suppress("Deprecation")
 
 package com.google.mapsplatform.transportation.sample.kotlinconsumer
@@ -197,14 +199,26 @@ class ConsumerViewModel(
       }
     }
 
-  fun startJourneySharing(tripData: TripData) {
-    if (appState != AppStates.CONFIRMING_TRIP) {
-      Log.e(
-        TAG,
-        "App state should be `SELECTING_DROPOFF` but is $appState, journey sharing cannot be started.",
-      )
-      return
+    /** Loads an existing trip from the sample provider and starts journey sharing for it. */
+  fun loadTrip(tripName: String) =
+    viewModelScope.launch {
+      try {
+        Log.i(TAG, "Attempting to load trip $tripName")
+
+        val matchedTripResponse = providerService.fetchMatchedTrip(tripName)
+
+        Log.i(TAG, "Successfully loaded trip $tripName")
+
+        tripStatusLiveData.postValue(matchedTripResponse.tripStatus)
+
+        executeOnMainThread { startJourneySharing(matchedTripResponse) }
+      } catch (e: Throwable) {
+        Log.e(TAG, "Failed to load trip.", e)
+        setErrorMessage(e)
+      }
     }
+
+  fun startJourneySharing(tripData: TripData) {
     val waypoints: List<WaypointResponse> = tripData.waypoints
     val listener = journeySharingListener.get()
     if (waypoints.size < 2 || listener == null) {
@@ -283,7 +297,11 @@ class ConsumerViewModel(
 
   private fun setErrorMessage(e: Throwable) {
     if (e is ConnectException) {
+      Log.w(TAG, "Provider connection error.", e)
       executeOnMainThread { errorMessage.setValue(R.string.msg_provider_connection_error) }
+    } else {
+      Log.e(TAG, "A generic error occurred in the provider.", e)
+      executeOnMainThread { errorMessage.setValue(R.string.error_trip_not_found) }
     }
   }
 

@@ -12,21 +12,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+ // kotlin/kotlin-consumer/src/main/kotlin/com/google/mapsplatform/transportation/sample/kotlinconsumer/SampleAppActivity.kt
 @file:Suppress("Deprecation")
 
 package com.google.mapsplatform.transportation.sample.kotlinconsumer
 
 import android.annotation.SuppressLint
+import android.app.AlertDialog
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.location.Location
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
+import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.Switch
 import android.widget.TextView
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
+import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.lifecycle.ViewModelProvider
@@ -56,7 +64,7 @@ import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.Pro
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.provider.service.LocalProviderService
 import com.google.mapsplatform.transportation.sample.kotlinconsumer.state.AppStates
 import java.util.Date
-
+import kotlinx.coroutines.*
 /** Main activity for the sample application. */
 class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingListener {
   // The current journey sharing trip status.
@@ -80,6 +88,7 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
   // Multipurpose button depending on the app state (could be for selecting, drop-off, pickup, or
   // requesting trip)
   private lateinit var actionButton: Button
+  private lateinit var existingTripButton: Button
 
   // Button that adds a stop in between pickup/drop-off. Only visible when selecting drop-off.
   private lateinit var addStopButton: Button
@@ -92,6 +101,7 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
 
   // Prompts if trip to create could be 'Shared'.
   private lateinit var isSharedTripTypeSwitch: Switch
+  private lateinit var dividerView: View
 
   // The reference to the map that is being displayed.
   private var googleMap: ConsumerGoogleMap? = null
@@ -121,6 +131,9 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
 
   // Session monitoring the current active trip.
   private var journeySharingSession: JourneySharingSession? = null
+  private lateinit var tripStatusCardView: CardView
+  private var defaultCardBackgroundColor: ColorStateList? = null
+  private var defaultCardElevation: Float = 0f
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -183,7 +196,14 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
           googleMap = consumerGoogleMap
           PolylineStyles.enableTrafficAwarePolyline(consumerController.getConsumerMapStyle())
           centerCameraToLastLocation()
+          consumerGoogleMap.isMyLocationEnabled = true
           setupMapListener()
+
+          tripStatusCardView.post {
+            val padding = tripStatusCardView.height + dividerView.height
+            Log.d(TAG, "Setting map bottom padding to: $padding")
+            consumerGoogleMap.setPadding(0, 0, 0, padding)
+          }
         }
       },
       /* fragmentActivity= */ this,
@@ -375,9 +395,9 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
       addedMarker =
         googleMap?.addMarker(
           ConsumerMarkerUtils.getConsumerMarkerOptions(
-              this@SampleAppActivity,
-              ConsumerMarkerType.PREVIOUS_TRIP_PENDING_POINT,
-            )
+            this@SampleAppActivity,
+            ConsumerMarkerType.PREVIOUS_TRIP_PENDING_POINT,
+          )
             .position(waypoint.terminalLocation.latLng)
         )
       addedMarker?.also { otherTripStopsMarkers.add(it) }
@@ -394,37 +414,84 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
 
   /** Display the reported map state and show trip data when in journey sharing state. */
   private fun displayAppState(state: Int) {
+    if (state == AppStates.INITIALIZED || state == AppStates.UNINITIALIZED) {
+      Log.d(TAG, "displayAppState: Setting card to transparent for initial state: $state")
+      tripStatusCardView.setCardBackgroundColor(Color.TRANSPARENT)
+      tripStatusCardView.cardElevation = 0f
+    } else {
+      Log.d(TAG, "displayAppState: Setting card to default for state: $state")
+      tripStatusCardView.setCardBackgroundColor(defaultCardBackgroundColor)
+      tripStatusCardView.cardElevation = defaultCardElevation
+    }
+
+    if (state in listOf(AppStates.SELECTING_PICKUP, AppStates.SELECTING_DROPOFF, AppStates.CONFIRMING_TRIP)) {
+      Log.d(TAG, "Configuring Cancel button for state $state")
+      existingTripButton.text = getString(R.string.button_cancel)
+      existingTripButton.setOnClickListener { cancelTripFlow() }
+    } else {
+      Log.d(TAG, "Configuring Existing Trip button for state $state")
+      existingTripButton.text = getString(R.string.existing_trip_button_label)
+      existingTripButton.setOnClickListener { showTripSelectionDialog() }
+    }
+
     when (state) {
       AppStates.SELECTING_PICKUP -> {
         setTripStatusTitle(R.string.state_select_pickup)
-        centerCameraToLastLocation()
+        actionButton.setText(R.string.pickup_label)
+        existingTripButton.visibility = View.VISIBLE
         pickupPin.visibility = View.VISIBLE
+        dropoffPin.visibility = View.GONE
+        addStopButton.visibility = View.GONE
+        isSharedTripTypeSwitch.visibility = View.GONE
+        centerCameraToLastLocation()
         resetPickupMarkerAndLocation()
       }
       AppStates.SELECTING_DROPOFF -> {
         setTripStatusTitle(R.string.state_select_dropoff)
+        actionButton.setText(R.string.dropoff_label)
+        existingTripButton.visibility = View.VISIBLE
         pickupPin.visibility = View.INVISIBLE
         dropoffPin.visibility = View.VISIBLE
         addStopButton.visibility = View.VISIBLE
+        isSharedTripTypeSwitch.visibility = View.GONE
       }
       AppStates.CONFIRMING_TRIP -> {
+        actionButton.setText(R.string.confirm_trip_label)
+        existingTripButton.visibility = View.VISIBLE
         dropoffPin.visibility = View.INVISIBLE
         tripStatusView.visibility = View.INVISIBLE
         addStopButton.visibility = View.GONE
         isSharedTripTypeSwitch.visibility = View.VISIBLE
+        drawTripPreviewPolyline()
+        centerCameraForTripPreview()
       }
       AppStates.JOURNEY_SHARING -> {
+        existingTripButton.visibility = View.GONE
+        tripStatusView.visibility = View.VISIBLE
+        pickupPin.visibility = View.GONE
+        dropoffPin.visibility = View.GONE
+        addStopButton.visibility = View.GONE
+        isSharedTripTypeSwitch.visibility = View.GONE
         clearTripPreviewPolyline()
         setTripStatusTitle(R.string.state_enroute_to_pickup)
       }
-      AppStates.INITIALIZED -> {
+      AppStates.INITIALIZED, AppStates.UNINITIALIZED -> {
         tripStatusView.visibility = View.INVISIBLE
-        resetActionButton()
+        pickupPin.visibility = View.GONE
+        dropoffPin.visibility = View.GONE
+        addStopButton.visibility = View.GONE
+        isSharedTripTypeSwitch.visibility = View.GONE
         removeAllMarkers()
+        clearTripPreviewPolyline()
         hideTripData()
+        resetActionButton()
       }
-      else -> hideTripData()
     }
+  }
+
+  private fun cancelTripFlow() {
+    Log.d(TAG, "Trip flow cancelled by user.")
+    consumerViewModel.appState = AppStates.INITIALIZED
   }
 
   /**
@@ -440,9 +507,9 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
     val intermediateStopMarker =
       googleMap?.addMarker(
         ConsumerMarkerUtils.getConsumerMarkerOptions(
-            this,
-            ConsumerMarkerType.INTERMEDIATE_DESTINATION_POINT,
-          )
+          this,
+          ConsumerMarkerType.INTERMEDIATE_DESTINATION_POINT,
+        )
           .position(marker.position)
       )
     intermediateStopsMarkers.add(intermediateStopMarker!!)
@@ -471,6 +538,10 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
     actionButton.visibility = View.VISIBLE
     val roundedButton = actionButton.background
     DrawableCompat.setTint(roundedButton, ContextCompat.getColor(this, R.color.actionable))
+
+    existingTripButton.visibility = View.VISIBLE
+    val existingTripButtonBg = existingTripButton.background
+    DrawableCompat.setTint(existingTripButtonBg, Color.DKGRAY)
   }
 
   private fun hideTripData() {
@@ -506,7 +577,7 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
     val visibility =
       if (
         tripInfo.currentTripStatus == TripInfo.TripStatus.COMPLETE ||
-          tripInfo.currentTripStatus == TripInfo.TripStatus.CANCELED
+        tripInfo.currentTripStatus == TripInfo.TripStatus.CANCELED
       )
         View.INVISIBLE
       else View.VISIBLE
@@ -515,25 +586,10 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
 
   private fun onActionButtonTapped() {
     when (consumerViewModel.appState) {
-      AppStates.INITIALIZED -> {
-        centerCameraToLastLocation()
-        actionButton.setText(R.string.pickup_label)
+      AppStates.INITIALIZED, AppStates.UNINITIALIZED ->
         consumerViewModel.appState = AppStates.SELECTING_PICKUP
-      }
-      AppStates.UNINITIALIZED -> {
-        actionButton.setText(R.string.pickup_label)
-        consumerViewModel.appState = AppStates.SELECTING_PICKUP
-      }
-      AppStates.SELECTING_PICKUP -> {
-        actionButton.setText(R.string.dropoff_label)
-        consumerViewModel.appState = AppStates.SELECTING_DROPOFF
-      }
-      AppStates.SELECTING_DROPOFF -> {
-        actionButton.setText(R.string.confirm_trip_label)
-        consumerViewModel.appState = AppStates.CONFIRMING_TRIP
-        drawTripPreviewPolyline()
-        centerCameraForTripPreview()
-      }
+      AppStates.SELECTING_PICKUP -> consumerViewModel.appState = AppStates.SELECTING_DROPOFF
+      AppStates.SELECTING_DROPOFF -> consumerViewModel.appState = AppStates.CONFIRMING_TRIP
       AppStates.CONFIRMING_TRIP -> {
         // Creates Trip through provider.
         consumerViewModel.createTrip()
@@ -646,13 +702,59 @@ class SampleAppActivity : AppCompatActivity(), ConsumerViewModel.JourneySharingL
     actionButton.setOnClickListener { onActionButtonTapped() }
     addStopButton = findViewById(R.id.addStopButton)
     addStopButton.setOnClickListener { onAddStopButtonTapped() }
+    dividerView = findViewById(R.id.divider)
 
     isSharedTripTypeSwitch = findViewById(R.id.is_shared_trip_type_switch)
     isSharedTripTypeSwitch.setOnCheckedChangeListener { _, isChecked ->
       consumerViewModel.isSharedTripType = isChecked
     }
 
+    existingTripButton = findViewById(R.id.existingTripButton)
+    tripStatusCardView = findViewById(R.id.trip_status_cardView)
+    defaultCardBackgroundColor = tripStatusCardView.cardBackgroundColor
+    defaultCardElevation = tripStatusCardView.cardElevation
+
     resetActionButton()
+  }
+
+  private fun showTripSelectionDialog() {
+    Log.d(TAG, "Showing trip selection dialog")
+
+    // Create a container for the EditText to add some padding.
+    val container = FrameLayout(this)
+    val params = FrameLayout.LayoutParams(
+      ViewGroup.LayoutParams.MATCH_PARENT,
+      ViewGroup.LayoutParams.WRAP_CONTENT
+    )
+    val margin = (20 * resources.displayMetrics.density).toInt()
+    params.leftMargin = margin
+    params.rightMargin = margin
+
+    val tripIdInput = EditText(this).apply {
+      this.layoutParams = params
+      hint = "Enter Trip ID"
+    }
+    container.addView(tripIdInput)
+
+    AlertDialog.Builder(this)
+      .setTitle("Connect to Existing Trip")
+      .setView(container)
+      .setPositiveButton("Connect") { _, _ ->
+        val tripId = tripIdInput.text.toString().trim()
+        if (tripId.isNotEmpty()) {
+          Log.i(TAG, "User connecting to trip ID: $tripId")
+          consumerViewModel.loadTrip(tripId)
+        } else {
+          Log.w(TAG, "User tried to connect with an empty trip ID.")
+          Snackbar.make(tripStatusView, "Trip ID cannot be empty.", Snackbar.LENGTH_SHORT)
+            .show()
+        }
+      }
+      .setNegativeButton("Cancel") { dialog, _ ->
+        Log.d(TAG, "Connect to trip cancelled.")
+        dialog.dismiss()
+      }
+      .show()
   }
 
   private fun setupViewBindings() {

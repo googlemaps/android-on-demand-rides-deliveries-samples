@@ -27,6 +27,9 @@
   <!-- Snackbar message saying that the app cannot connect to the provider backend -->
   <string name="msg_provider_connection_error" translatable="false">Can\'t connect to Provider backend</string>
 
+  <!-- Snackbar message saying that the app cannot find the existing trip on the provider backend -->
+  <string name="error_trip_not_found">Could not find trip. Please check the ID and your network connection.</string>
+
   <!-- Begin state titles. -->
   <string name="state_initial" translatable="false">Waiting for trip</string>
   <!-- Waiting to find a driver. -->
@@ -72,6 +75,8 @@
   <string name="pickup_label" translatable="false">Confirm Pickup</string>
    <string name="confirm_trip_label" translatable="false">Confirm Trip</string>
   <string name="add_stop_label" translatable="false">Add Stop</string>
+  <string name="button_cancel">Cancel</string>
+  <string name="existing_trip_button_label">Existing</string>
   <!-- String for formatting eta [CHAR_LIMIT=40] -->
   <plurals name="eta_format_string" translatable="false">
     <item quantity="one">%d min</item>
